@@ -1,5 +1,7 @@
-import numpy as np
 from collections import Counter
+
+import numpy as np
+
 
 class KNearestNeighbour :
 
@@ -15,3 +17,17 @@ class KNearestNeighbour :
         k_nearest_idx = np.argpartition(norms, self.k - 1)[:self.k]
         k_nearest_labels = self.labels[k_nearest_idx]
         return Counter(k_nearest_labels).most_common(1)[0][0]
+
+
+class Linear :
+
+    def __init__( self, NumClasses, LossMetric ) :
+        self.weights = None
+        self.num_classes = NumClasses
+        self.loss = LossMetric
+
+    def train( self, datapoints, labels, learning_rate, num_iterations ) :
+        pass
+
+    def predict( self, test_point ) :
+        pass

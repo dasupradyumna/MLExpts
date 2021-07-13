@@ -13,3 +13,9 @@ def EuclideanNorm( x, y ) :
 def ManhattanNorm( x, y ) :
     k = 1 if x.ndim > 1 or y.ndim > 1 else 0
     return np.sum(abs(x-y), axis=k)
+
+def MultiSVMLoss():
+    pass
+
+def SoftmaxLoss():
+    pass

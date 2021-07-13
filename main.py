@@ -39,12 +39,14 @@ def testLinear( ) :
     # 32x32x3 color images of 10 classes of objects : 50000 training points, 10000 testing points
     from tensorflow.keras.datasets import cifar10
 
-    def preprocess( train, test ) :  # flatten and zero-center both the datasets
-        train = train.reshape(train.shape[0], -1)
-        test = train.reshape(test.shape[0], -1)
-        mean_image = np.mean(np.vstack(train, test), axis=0)
+    def preprocess( train, test ) :  # flatten and zero-center both the datasets, padded with column of ones for bias
+        train = train.reshape(train.shape[0], -1).astype(float)
+        test = test.reshape(test.shape[0], -1).astype(float)
+        mean_image = np.mean(np.vstack((train, test)), axis=0)
         train -= mean_image
         test -= mean_image
+        train = np.hstack((train, np.ones((train.shape[0], 1))))
+        test = np.hstack((test, np.ones((test.shape[0], 1))))
         return train, test
 
     from time import time
@@ -52,6 +54,8 @@ def testLinear( ) :
     NUM_CLASSES = 10
     (train_images, train_labels), (test_images, test_labels) = cifar10.load_data()
     train_images, test_images = preprocess(train_images, test_images)
+    train_labels = train_labels.reshape(train_labels.size)
+    test_labels = test_labels.reshape(test_labels.size)
 
     # linear_classifier = Linear(NUM_CLASSES, metrics.SoftmaxLoss)
     linear_classifier = Linear(NUM_CLASSES, metrics.MultiSVMLoss)

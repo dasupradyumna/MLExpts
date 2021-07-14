@@ -24,13 +24,13 @@ class Linear :
     def __init__( self, NumClasses, LossMetric ) :
         self.weights = None
         self.num_classes = NumClasses
-        self.loss_function = LossMetric
+        self.loss = LossMetric
 
-    def train( self, datapoints, labels, learning_rate, num_iterations ) :
+    def train( self, datapoints, labels, num_iterations, learning_rate, reg_lambda) :
         if not self.weights :
             self.weights = 1e-3 * np.random.randn(datapoints.shape[1], self.num_classes)
 
-        labels = np.eye(self.num_classes, dtype=bool)[labels] # convert label values to one-hot vectors
+        labels = np.eye(self.num_classes, dtype=bool)[labels]  # convert label values to one-hot vectors
 
         batch_size = datapoints.shape[0] // num_iterations
         loss_iterations = np.zeros(num_iterations)
@@ -38,10 +38,11 @@ class Linear :
             data_batch = datapoints[itr * batch_size : (itr + 1) * batch_size]
             labels_batch = labels[itr * batch_size : (itr + 1) * batch_size]
 
-            scores = data_batch @ self.weights  # X.W matrix multiplication
-            loss, gradient = self.loss_function(scores, labels_batch)
+            loss, gradients = self.loss(data_batch, labels_batch, self.weights, reg_lambda)
+            # import metrics
+            # num_gradients = metrics.gradient_check(self.weights, data_batch, labels_batch, reg_lambda, self.loss)
             loss_iterations[itr] = loss
-            self.weights -= learning_rate * gradient
+            self.weights -= learning_rate * gradients
 
         return loss_iterations
 

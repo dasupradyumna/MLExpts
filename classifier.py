@@ -30,13 +30,15 @@ class Linear :
         if not self.weights :
             self.weights = 1e-3 * np.random.randn(datapoints.shape[1], self.num_classes)
 
+        labels = np.eye(self.num_classes, dtype=bool)[labels] # convert label values to one-hot vectors
+
         batch_size = datapoints.shape[0] // num_iterations
         loss_iterations = np.zeros(num_iterations)
         for itr in range(num_iterations) :
             data_batch = datapoints[itr * batch_size : (itr + 1) * batch_size]
             labels_batch = labels[itr * batch_size : (itr + 1) * batch_size]
 
-            scores = data_batch @ self.weights      # X.W matrix multiplication
+            scores = data_batch @ self.weights  # X.W matrix multiplication
             loss, gradient = self.loss_function(scores, labels_batch)
             loss_iterations[itr] = loss
             self.weights -= learning_rate * gradient

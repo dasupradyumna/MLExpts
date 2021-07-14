@@ -17,20 +17,40 @@ def ManhattanNorm( x, y ) :
     return np.sum(abs(x - y), axis=k)
 
 
-def MultiSVMLossWithGrad( datapoints, labels, scores ) :
-    # scores : N x C float array, labels : N x C bool array
+# calculates gradients numerically using first principle; sanity check for analytical gradient functions
+def gradient_check( weights, datapoints, labels, loss ) :
+    current_loss = loss(datapoints, labels, datapoints @ weights, calc_grad=False)
+    gradients = np.zeros(weights.shape)
+    h = 1e-8  # perturbation value
+    for row in range(weights.shape[0]) :
+        for col in range(weights.shape[1]) :
+            weights[row, col] += h  # disturb each weight value by h
+            new_loss = loss(datapoints, labels, datapoints @ weights, calc_grad=False)  # perturbed loss value
+            gradients[row, col] = (new_loss - current_loss) / h  # first principles of differentiation
+            weights[row, col] -= h  # restoring weight matrix
+
+    return gradients
+
+
+# Multi-class SVM (Hinge) Loss function, with option to calculate gradient
+# datapoints : N x K float array, labels : N x C bool array, scores : N x C float array
+# returns the calculated loss, and optionally also the gradient for current weights
+def MultiSVMLossWithGrad( datapoints, labels, scores, calc_grad=True ) :
+    gradients = None
     true_label_scores = scores[labels].reshape((-1, 1))  # N x 1, contains scores corresponding to true labels
     loss = np.maximum(0, scores - true_label_scores + 1)  # N x C, loss for each datapoint and each class label
     loss[labels] = 0  # setting loss value for true labels to zero
-    loss_01 = (loss > 0).astype(int)  # N x C, loss > 0 : 1 else 0 (derivative of Hinge loss)
+
+    if calc_grad :
+        loss_01 = (loss > 0).astype(int)  # N x C, loss > 0 : 1 else 0 (derivative of Hinge loss)
+        # N-vector, setting loss_01 values for true labels equal to sum of ones in each row (datapoint)
+        loss_01[labels] = -np.sum(loss_01, axis=1)
+        gradients = (datapoints.T @ loss_01) / datapoints.shape[0]  # multiplying by X, dividing by no. of datapoints
+
     loss = np.sum(loss, axis=1)  # N-vector, summing up loss over all classes for each datapoint
     loss = np.mean(loss)  # scalar, taking average of losses over all datapoints
 
-    # N-vector, setting loss_01 values for true labels equal to sum of ones in each row (datapoint)
-    loss_01[labels] = -np.sum(loss_01, axis=1)
-    gradients = datapoints.T @ loss_01
-
-    return loss, gradients
+    return (loss, gradients) if calc_grad else loss
 
 
 def SoftmaxLoss( ) :

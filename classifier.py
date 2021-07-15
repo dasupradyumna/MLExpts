@@ -34,7 +34,7 @@ class Linear :
 
         batch_size = datapoints.shape[0] // num_iterations
         loss_iterations = np.zeros(num_iterations)
-        for itr in range(num_iterations) :
+        for itr in np.random.permutation(range(num_iterations)) :
             data_batch = datapoints[itr * batch_size : (itr + 1) * batch_size]
             labels_batch = labels[itr * batch_size : (itr + 1) * batch_size]
 
@@ -48,6 +48,6 @@ class Linear :
 
         return loss_iterations
 
-    def predict( self, test_point ) :
-        axis = int(test_point.ndim == 2)
-        return np.argmax(test_point @ self.weights, axis)  # C-vector of predicted scores for input datapoint
+    def predict( self, test_points ) :  # test_points can be 1d or 2d array
+        axis = int(test_points.ndim == 2)
+        return np.argmax(test_points @ self.weights, axis)

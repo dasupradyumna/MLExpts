@@ -53,22 +53,51 @@ def testLinear( ) :
     from time import time
     start = time()
     NUM_CLASSES = 10
+    NUM_ITERATIONS = 1000
+
+    ############ UNPACKING AND PREPROCESSING DATASET ############
+
     (train_images, train_labels), (test_images, test_labels) = cifar10.load_data()
     train_images, train_labels = preprocess(train_images, train_labels)
     test_images, test_labels = preprocess(test_images, test_labels)
+    half_test = test_labels.size // 2
+    validation_images, validation_labels = test_images[: half_test], test_labels[: half_test]
+    test_images, test_labels = test_images[half_test :], test_labels[half_test :]
+
+    ############ CREATING CLASSIFIER OBJECT ############
 
     # linear_classifier = Linear(NUM_CLASSES, metrics.SoftmaxLoss)
-    linear_classifier = Linear(NUM_CLASSES, metrics.MultiSVMLossWithGrad)
-    linear_classifier.train(
-        train_images, train_labels, loss_margin=0.1,
-        num_iterations=1000, learning_rate=1e-5, reg_lambda=1e-5
-    )
-    # TODO : split half of test dataset into validation dataset, add code for tuning hyper-parameters
+    linear_classifier = Linear(NUM_CLASSES, metrics.MultiSVMLossWithGrad)  # ~34% accuracy, with best hyperparameters
 
-    correct = 0
-    for image, label in zip(test_images, test_labels) :
-        prediction = linear_classifier.predict(image)
-        correct += (label == prediction)
+    ############ TUNING HYPERPARAMETERS AND VALIDATION ############
+
+    hyperparameters = np.zeros((4, 3, 2, 3))
+    hyperparameters[:, :, :, 0] = np.array([0.01, 0.05, 0.1, 0.5]).reshape((4, 1, 1))  # loss_margin (0.05)
+    hyperparameters[:, :, :, 1] = np.array([1e-3, 1e-4, 1e-5]).reshape((1, 3, 1))  # learning_rate (1e-4)
+    hyperparameters[:, :, :, 2] = np.array([1e-4, 1e-5]).reshape((1, 1, 2))  # reg_lambda (1e-5)
+    hyperparameters = hyperparameters.reshape((-1, 3))
+
+    accuracy_hp = []
+    for loss_margin, learning_rate, reg_lambda in hyperparameters :
+        linear_classifier.train(
+            train_images, train_labels, loss_margin,  # train the weights with current configuration
+            NUM_ITERATIONS, learning_rate, reg_lambda
+        )
+        prediction = linear_classifier.predict(validation_images)
+        correct = np.sum(prediction == validation_labels)
+        accuracy_hp.append(100 * correct / len(validation_labels))  # log accuracy for current configuration
+
+        linear_classifier.weights = None  # reset for fresh training
+
+    ############ TRAINING WITH BEST HYPERPARAMETERS AND PREDICTION ############
+
+    loss_margin, learning_rate, reg_lambda = hyperparameters[np.argmax(accuracy_hp)]  # choose best configuration
+    linear_classifier.train(
+        train_images, train_labels, loss_margin,
+        NUM_ITERATIONS, learning_rate, reg_lambda
+    )
+    prediction = linear_classifier.predict(validation_images)
+    correct = np.sum(prediction == validation_labels)  # counting no. of correct predictions
 
     print(f"Time elapsed : {time() - start}s")
     print(f"Accuracy = {correct}/{len(test_labels)} : {100 * correct / len(test_labels)}%")

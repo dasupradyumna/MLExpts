@@ -26,7 +26,7 @@ class Linear :
         self.num_classes = NumClasses
         self.loss = LossMetric
 
-    def train( self, datapoints, labels, num_iterations, learning_rate, reg_lambda) :
+    def train( self, datapoints, labels, loss_margin, num_iterations, learning_rate, reg_lambda ) :
         if not self.weights :
             self.weights = 1e-3 * np.random.randn(datapoints.shape[1], self.num_classes)
 
@@ -38,13 +38,16 @@ class Linear :
             data_batch = datapoints[itr * batch_size : (itr + 1) * batch_size]
             labels_batch = labels[itr * batch_size : (itr + 1) * batch_size]
 
-            loss, gradients = self.loss(data_batch, labels_batch, self.weights, reg_lambda)
+            loss, gradients = self.loss(data_batch, labels_batch, self.weights, loss_margin, reg_lambda)
             # import metrics
-            # num_gradients = metrics.gradient_check(self.weights, data_batch, labels_batch, reg_lambda, self.loss)
+            # num_gradients = metrics.gradient_check(
+            #     self.weights, data_batch, labels_batch, loss_margin, reg_lambda, self.loss
+            # )
             loss_iterations[itr] = loss
             self.weights -= learning_rate * gradients
 
         return loss_iterations
 
     def predict( self, test_point ) :
-        pass
+        axis = int(test_point.ndim == 2)
+        return np.argmax(test_point @ self.weights, axis)  # C-vector of predicted scores for input datapoint

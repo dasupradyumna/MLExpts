@@ -21,12 +21,15 @@ class KNearestNeighbour :
 
 class Linear :
 
-    def __init__( self, NumClasses, LossMetric ) :
+    def __init__( self, NumClasses ) :
         self.weights = None
         self.num_classes = NumClasses
-        self.loss = LossMetric
+        self.loss_model = None
 
-    def train( self, datapoints, labels, loss_margin, num_iterations, learning_rate, reg_lambda ) :
+    def setLoss( self, LossModel ) :
+        self.loss_model = LossModel
+
+    def train( self, datapoints, labels, num_iterations, learning_rate ) :
         if not self.weights :
             self.weights = 1e-3 * np.random.randn(datapoints.shape[1], self.num_classes)
 
@@ -38,11 +41,10 @@ class Linear :
             data_batch = datapoints[itr * batch_size : (itr + 1) * batch_size]
             labels_batch = labels[itr * batch_size : (itr + 1) * batch_size]
 
-            loss, gradients = self.loss(data_batch, labels_batch, self.weights, loss_margin, reg_lambda)
+            loss = self.loss_model.evaluate(self.weights, data_batch, labels_batch)
+            gradients = self.loss_model.gradient(self.weights, data_batch, labels_batch)
             # import metrics
-            # num_gradients = metrics.gradient_check(
-            #     self.weights, data_batch, labels_batch, loss_margin, reg_lambda, self.loss
-            # )
+            # num_gradients = metrics.gradient_check(self.weights, data_batch, labels_batch, self.loss_model)
             loss_iterations[itr] = loss
             self.weights -= learning_rate * gradients
 

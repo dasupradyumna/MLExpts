@@ -60,46 +60,48 @@ def testLinear( ) :
     (train_images, train_labels), (test_images, test_labels) = cifar10.load_data()
     train_images, train_labels = preprocess(train_images, train_labels)
     test_images, test_labels = preprocess(test_images, test_labels)
-    half_test = test_labels.size // 2
+    half_test = test_labels.size // 2   # splitting half of test data for validation
     validation_images, validation_labels = test_images[: half_test], test_labels[: half_test]
     test_images, test_labels = test_images[half_test :], test_labels[half_test :]
-
-    ############ CREATING CLASSIFIER OBJECT ############
-
-    # linear_classifier = Linear(NUM_CLASSES, metrics.SoftmaxLoss)
-    linear_classifier = Linear(NUM_CLASSES, metrics.MultiSVMLossWithGrad)  # ~34% accuracy, with best hyperparameters
+    print('Datasets loaded and preprocessed.\n')
 
     ############ TUNING HYPERPARAMETERS AND VALIDATION ############
 
-    hyperparameters = np.zeros((4, 3, 2, 3))
-    hyperparameters[:, :, :, 0] = np.array([0.01, 0.05, 0.1, 0.5]).reshape((4, 1, 1))  # loss_margin (0.05)
-    hyperparameters[:, :, :, 1] = np.array([1e-3, 1e-4, 1e-5]).reshape((1, 3, 1))  # learning_rate (1e-4)
-    hyperparameters[:, :, :, 2] = np.array([1e-4, 1e-5]).reshape((1, 1, 2))  # reg_lambda (1e-5)
-    hyperparameters = hyperparameters.reshape((-1, 3))
+    linear_classifier = Linear(NUM_CLASSES)
 
+    hyperparameters = np.zeros((4, 6, 2))
+    # hyperparameters[:, :, :, 0] = np.array([0.01, 0.05, 0.1, 0.5]).reshape((4, 1, 1))  # loss_margin
+    hyperparameters[:, :, 0] = np.array([0.5, 0.1, 1e-2, 1e-3]).reshape((4, 1))  # learning_rate
+    hyperparameters[:, :, 1] = np.array([1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8]).reshape((1, 6))  # reg_lambda
+    hyperparameters = hyperparameters.reshape((-1, 2))
+
+    print('Validation --')
     accuracy_hp = []
-    for loss_margin, learning_rate, reg_lambda in hyperparameters :
-        linear_classifier.train(
-            train_images, train_labels, loss_margin,  # train the weights with current configuration
-            NUM_ITERATIONS, learning_rate, reg_lambda
-        )
+    count = 0
+    for learning_rate, reg_lambda in hyperparameters :
+        # linear_classifier.setLoss(metrics.MultiSVMLoss(reg_lambda, loss_margin))
+        linear_classifier.setLoss(metrics.CrossEntropyLoss(reg_lambda))
+        # train the weights with current configuration and predict labels for validation set
+        linear_classifier.train(train_images, train_labels, NUM_ITERATIONS, learning_rate)
         prediction = linear_classifier.predict(validation_images)
         correct = np.sum(prediction == validation_labels)
         accuracy_hp.append(100 * correct / len(validation_labels))  # log accuracy for current configuration
 
+        print(count, ' : [ ', learning_rate, ' ', reg_lambda, ' ] : ', accuracy_hp[-1])
         linear_classifier.weights = None  # reset for fresh training
+        count += 1
 
     ############ TRAINING WITH BEST HYPERPARAMETERS AND PREDICTION ############
 
-    loss_margin, learning_rate, reg_lambda = hyperparameters[np.argmax(accuracy_hp)]  # choose best configuration
-    linear_classifier.train(
-        train_images, train_labels, loss_margin,
-        NUM_ITERATIONS, learning_rate, reg_lambda
-    )
-    prediction = linear_classifier.predict(validation_images)
-    correct = np.sum(prediction == validation_labels)  # counting no. of correct predictions
+    print('\nTesting --')
+    learning_rate, reg_lambda = hyperparameters[np.argmax(accuracy_hp)]  # best configuration
+    # linear_classifier.setLoss(metrics.MultiSVMLoss(reg_lambda, loss_margin))  # 31~32% average test accuracy
+    linear_classifier.setLoss(metrics.CrossEntropyLoss(reg_lambda))  # 32~33% average test accuracy
+    linear_classifier.train(train_images, train_labels, NUM_ITERATIONS, learning_rate)
+    prediction = linear_classifier.predict(test_images)
+    correct = np.sum(prediction == test_labels)  # counting no. of correct predictions
 
-    print(f"Time elapsed : {time() - start}s")
+    print(f"Total Time elapsed : {time() - start}s")
     print(f"Accuracy = {correct}/{len(test_labels)} : {100 * correct / len(test_labels)}%")
 
 

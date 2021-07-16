@@ -57,5 +57,17 @@ def MultiSVMLossWithGrad( datapoints, labels, weights, margin, reg_lambda, calc_
     return (loss, gradients) if calc_grad else loss
 
 
-def SoftmaxLoss( ) :
-    pass
+def CrossEntropyLossWithGrad( datapoints, labels, weights, dummy_margin, reg_lambda, calc_grad=True ) :
+    gradients = None
+    softmax_scores = np.exp(datapoints @ weights)  # N x C, e^s for each element s from X.W matrix multiplication
+    softmax_scores = softmax_scores / np.sum(softmax_scores, axis=1, keepdims=True)  # N x C, softmax distributions
+    loss = -np.log(softmax_scores[labels])  # N-vector, logs of scores of true labels
+    loss = np.mean(loss)  # scalar, taking average of losses over all datapoints
+    loss += 0.5 * reg_lambda * np.sum(weights * weights)  # regularization term
+
+    if calc_grad :
+        softmax_scores[labels] -= 1  # subtracting only scores corresponding to true class for each datapoint by 1
+        gradients = (datapoints.T @ softmax_scores) / datapoints.shape[0]  # derivative of CE Loss
+        gradients += reg_lambda * weights  # derivative of regularization term
+
+    return (loss, gradients) if calc_grad else loss

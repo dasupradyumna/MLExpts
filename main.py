@@ -14,13 +14,17 @@ def testKNN( ) :
         dataset = dataset.reshape(-1, img_size // 2, 2, img_size // 2, 2).max(axis=(2, 4))
         return dataset.reshape(dataset.shape[0], -1)  # flatten 14x14 to 196
 
+    ############ UNPACKING AND PREPROCESSING DATASET ############
+
     from time import time
     start = time()
     (train_images, train_labels), (test_images, test_labels) = mnist.load_data()
     train_images = preprocess(train_images)
     test_images = preprocess(test_images)
 
-    knn_classifier = KNearestNeighbour(
+    ############ CREATING CLASSIFIER AND PREDICTION ############
+
+    knn_classifier = KNearestNeighbour(  # there is no concept of training for KNN
         10, (train_images, train_labels), metrics.ManhattanNorm
     )  # L1 norm : 81.34% accuracy, ~276s
     # knn_classifier = KNearestNeighbour(
@@ -60,7 +64,7 @@ def testLinear( ) :
     (train_images, train_labels), (test_images, test_labels) = cifar10.load_data()
     train_images, train_labels = preprocess(train_images, train_labels)
     test_images, test_labels = preprocess(test_images, test_labels)
-    half_test = test_labels.size // 2   # splitting half of test data for validation
+    half_test = test_labels.size // 2  # splitting half of test data for validation
     validation_images, validation_labels = test_images[: half_test], test_labels[: half_test]
     test_images, test_labels = test_images[half_test :], test_labels[half_test :]
     print('Datasets loaded and preprocessed.\n')

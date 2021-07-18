@@ -2,6 +2,7 @@ import numpy as np
 
 import metrics
 from classifier import KNearestNeighbour, Linear
+from neuralnet import Dense, NeuralNetwork, relu, softmax
 
 
 def testKNN( ) :
@@ -109,6 +110,49 @@ def testLinear( ) :
     print(f"Accuracy = {correct}/{len(test_labels)} : {100 * correct / len(test_labels)}%")
 
 
+def testNN( ) :
+    # 32x32x3 color images of 10 classes of objects : 50000 training points, 10000 testing points
+    from tensorflow.keras.datasets import cifar10
+
+    def preprocess( images, labels ) :
+        # images : N x H x W x C, no. of images, height, width, channels of each image
+        # labels : N x 1, true labels for each image
+        N = images.shape[0]
+        images = images / 255  # normalize pixel values to [0,1] interval
+        images -= np.mean(images, axis=(1, 2)).reshape((N, 1, 1, -1))  # N x 1 x 1 x C : mean per channel per image
+        images = images.reshape((N, -1))  # N x K, K features (all pixels)
+        images = np.hstack((images, np.ones((N, 1))))  # appending a column of 1s for including bias in weights
+        labels = labels.reshape(N)  # making labels an N-vector
+        return images, labels
+
+    from time import time
+    start = time()
+    NUM_CLASSES = 10
+    NUM_ITERATIONS = 1000
+
+    ############ UNPACKING AND PREPROCESSING DATASET ############
+
+    (train_images, train_labels), (test_images, test_labels) = cifar10.load_data()
+    train_images, train_labels = preprocess(train_images, train_labels)
+    test_images, test_labels = preprocess(test_images, test_labels)
+    half_test = test_labels.size // 2  # splitting half of test data for validation
+    validation_images, validation_labels = test_images[: half_test], test_labels[: half_test]
+    test_images, test_labels = test_images[half_test :], test_labels[half_test :]
+    print('Datasets loaded and preprocessed.\n')
+
+    NNModel = NeuralNetwork(
+        metrics.CrossEntropyLoss(RegularizationLambda=1e-5),
+        InputDim=train_images.shape[1],
+        Layers=[
+            Dense(128, relu),
+            Dense(64, relu),
+            Dense(10, softmax)
+        ]
+    )
+    NNModel.train(train_images, train_labels, num_iterations=1000, learning_rate=1e-3)
+
+
 if __name__ == '__main__' :
     # testKNN()
-    testLinear()
+    # testLinear()
+    testNN()

@@ -123,8 +123,10 @@ def testNN( ) :
         images = images / 255  # normalize pixel values to [0,1] interval
         images -= np.mean(images, axis=(1, 2)).reshape((N, 1, 1, -1))  # N x 1 x 1 x C : mean per channel per image
         images = images.reshape((N, -1))  # N x K, K features (all pixels)
-        images = np.hstack((images, np.ones((N, 1))))  # appending a column of 1s for including bias in weights
-        labels = labels.reshape(N)  # making labels an N-vector
+        dataset = np.hstack((images, np.ones((N, 1)), labels))  # appending a column of 1s for including bias in weights
+        np.random.shuffle(dataset)  # shuffling dataset for generalization in training and testing
+        images, labels = dataset[:, :-1], dataset[:, -1]
+        labels = labels.astype(int).reshape(N)  # making labels an N-vector
         return images, labels
 
     NUM_CLASSES = 10
@@ -147,7 +149,7 @@ def testNN( ) :
     hyperparameters[:, :, 1] = np.array([1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8]).reshape((1, 6))  # reg_lambda
     hyperparameters = hyperparameters.reshape((-1, 2))
 
-    print('Validation --')
+    print('------- Validation -------')
     accuracy_hp = []
     count = 0
     from time import time
@@ -172,7 +174,8 @@ def testNN( ) :
 
     ############ TRAINING WITH BEST HYPERPARAMETERS AND PREDICTION ############
 
-    print('\nTesting --')
+    print('\n------- Testing -------')
+    start = time()
     learning_rate, reg_lambda = hyperparameters[np.argmax(accuracy_hp)]  # best configuration
     NNModel = NeuralNetwork(
         metrics.SparseCELoss(reg_lambda),
@@ -183,11 +186,12 @@ def testNN( ) :
             Dense(NUM_CLASSES, metrics.Softmax)
         ]
     )
+    NNModel.details()
     NNModel.train(train_images, train_labels, NUM_ITERATIONS, learning_rate)
     predictions = NNModel.predict(test_images)
-    correct = np.sum(predictions == validation_labels)
+    correct = np.sum(predictions == test_labels)
 
-    # print(f"Total Time elapsed : {time() - start}s")
+    print(f"Total Time elapsed : {time() - start}s")
     print(f"Accuracy = {correct}/{len(test_labels)} : {100 * correct / len(test_labels)}%")
 
 

@@ -9,16 +9,14 @@ import numpy as np
 def EuclideanNorm( x, y ) :
     assert x.ndim <= 2 and y.ndim <= 2, \
         "Expected argument is at most a 2D numpy array."
-    axis = int(x.ndim == 2 or y.ndim == 2)
-    return np.sqrt(np.sum((x - y) * (x - y), axis))
+    return np.sqrt(np.sum((x - y) * (x - y), axis=-1))
 
 
 # sum of magnitudes of differences
 def ManhattanNorm( x, y ) :
     assert x.ndim <= 2 and y.ndim <= 2, \
         "Expected argument is at most a 2D numpy array."
-    axis = int(x.ndim == 2 or y.ndim == 2)
-    return np.sum(abs(x - y), axis)
+    return np.sum(abs(x - y), axis=-1)
 
 
 # calculates gradients numerically using first principle; sanity check for analytical gradient functions
@@ -54,7 +52,7 @@ class MultiSVMLoss :
         loss = np.maximum(0, scores - true_label_scores + self.margin)  # N x C, loss for each datapoint and each class
         loss[np.arange(labels.size), labels] = 0  # setting loss value for true labels to zero
         self.loss_cache = (loss > 0)  # caching binary loss values, loss > 0 : 1 else 0 (derivative of Hinge loss)
-        loss = np.sum(loss, axis=1)  # N-vector, summing up loss over all classes for each datapoint
+        loss = np.sum(loss, axis=-1)  # N-vector, summing up loss over all classes for each datapoint
         loss = np.mean(loss)  # scalar, taking average of losses over all datapoints
         loss += self.reg_lambda * reg_loss  # regularization term
 
@@ -65,7 +63,7 @@ class MultiSVMLoss :
     def backward( self, _, labels ) :
         gradients = self.loss_cache.astype(int)  # N x C, extracting cached loss
         # N-vector, setting loss_01 values for true labels equal to sum of ones in each row (datapoint)
-        gradients[np.arange(labels.size), labels] = -np.sum(gradients, axis=1)
+        gradients[np.arange(labels.size), labels] = -np.sum(gradients, axis=-1)
 
         return gradients, self.reg_lambda
 
@@ -100,9 +98,8 @@ class Softmax :
     # scores : N x C array
     @staticmethod
     def forward( scores ) :
-        axis = int(scores.ndim == 2)
         softmax_scores = np.exp(scores)  # N x C, e^s for each element s from X.W matrix multiplication
-        return softmax_scores / np.sum(softmax_scores, axis, keepdims=True)  # N x C, softmax distributions
+        return softmax_scores / np.sum(softmax_scores, axis=-1, keepdims=True)  # N x C, softmax distributions
 
     # calculates gradients of distribution wrt scores
     @staticmethod

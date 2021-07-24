@@ -123,9 +123,6 @@ def testNN( ) :
         images = images / 255  # normalize pixel values to [0,1] interval
         images -= np.mean(images, axis=(1, 2)).reshape((N, 1, 1, -1))  # N x 1 x 1 x C : mean per channel per image
         images = images.reshape((N, -1))  # N x K, K features (all pixels)
-        dataset = np.hstack((images, np.ones((N, 1)), labels))  # appending a column of 1s for including bias in weights
-        np.random.shuffle(dataset)  # shuffling dataset for generalization in training and testing
-        images, labels = dataset[:, :-1], dataset[:, -1]
         labels = labels.astype(int).reshape(N)  # making labels an N-vector
         return images, labels
 

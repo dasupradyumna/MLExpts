@@ -12,11 +12,14 @@ class Dense :
         self.num_nodes = NumNodes  # number of nodes in current layer
         self.activation = Activation  # activation function to be applied to output of the affine product
         self.weights = None  # weights matrix connecting to previous layer
+        self.bias = None  # bias vector for current layer
         self.nodes = None  # array to store the values of current layer
         self.input = None  # cache of input array to the layer for backpropagation
 
     # initialize weights of the layer depending upon the activation function
     def init_weights( self, input_dim ) :
+        self.bias = np.zeros(self.num_nodes)  # zero-initialize the bias vector
+
         K = sqrt(1 / input_dim)
         if self.activation is metrics.Softmax :  # Xavier initialization for Softmax activated layers
             self.weights = np.random.uniform(-K, K, size=(input_dim, self.num_nodes))
@@ -30,15 +33,21 @@ class Dense :
             "Expected input to Dense layer is at most a 2D numpy array."
 
         self.input = datapoints  # caching input data
-        self.nodes = self.activation.forward(datapoints @ self.weights)
+        self.nodes = self.activation.forward(datapoints @ self.weights + self.bias)
         if loss is None : return self.nodes  # loss calculation is unnecessary for prediction
 
-        loss += 0.5 * np.sum(self.weights * self.weights)  # regularization term, lambda multiplied at the end
+        loss += 0.5 * (  # regularization term, lambda multiplied at the end
+            np.sum(self.weights * self.weights) +
+            np.sum(self.bias * self.bias)
+        )
         return self.nodes, loss
 
     # backpropagation step
     def backward( self, gradients, reg_lambda, learning_rate ) :
         gradients = self.activation.backward(gradients, self.nodes)  # gradient wrt activation function
+
+        self.bias -= learning_rate * (np.mean(gradients, axis=0) + reg_lambda * self.bias)
+
         weight_grads = np.mean(  # gradients for updating weights
             self.input.reshape((-1, self.input.shape[1], 1)) @ gradients.reshape((-1, 1, self.num_nodes)),
             axis=0
@@ -46,6 +55,7 @@ class Dense :
         weight_grads += reg_lambda * self.weights  # gradient of regularization term
         gradients = gradients @ self.weights.T  # gradient for passing to previous layer
         self.weights -= learning_rate * weight_grads  # updating weights
+
         return gradients
 
     # display the details of the layer
@@ -72,6 +82,10 @@ class NeuralNetwork :
 
     # train the weights of the model using a dataset and other parameters
     def train( self, datapoints, labels, num_iterations, learning_rate ) :
+        # TODO : random batches with replacement
+        # TODO : add training epochs, 1 epoch = batch size * iterations per epoch
+        # TODO : learning rate decay with epochs
+        # TODO : keep track of best weights, end of each epoch
         batch_size = datapoints.shape[0] // num_iterations
         loss_iterations = np.zeros(num_iterations)
         for itr in np.random.permutation(range(num_iterations)) :  # random batch without replacement
@@ -81,7 +95,8 @@ class NeuralNetwork :
             scores, loss_iterations[itr] = self.forward(data_batch, labels_batch)  # calculate final scores and loss
             """sanity check using numerical gradient calculation
             num_gradients = [
-                metrics.gradient_check(self, data_batch, layer.weights, labels_batch)
+                (metrics.gradient_check(self, data_batch, layer.weights, labels_batch),
+                 metrics.gradient_check(self, data_batch, layer.bias, labels_batch))
                 for layer in self.layers
             ]  # """
             self.backward(scores, labels_batch, learning_rate)  # update weights of all layers
@@ -90,11 +105,11 @@ class NeuralNetwork :
 
     # predict an output class for given input datapoint(s)
     def predict( self, test_points ) :
+        # TODO : add batch size prediction
         nodes = test_points
         for layer in self.layers :  # propagating data forwards through each layer
             nodes = layer.forward(nodes)
-        axis = int(nodes.ndim == 2)
-        return np.argmax(nodes, axis)  # find index of max score
+        return np.argmax(nodes, axis=-1)  # find index of max score
 
     # forward pass
     def forward( self, datapoints, labels ) :

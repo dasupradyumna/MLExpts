@@ -21,28 +21,33 @@ def __polar_gradient( image ) :
     return Mag, Ang
 
 
+def __get_histograms( magnitudes, directions, hist_bins, cell_size ) :
+    H, W, C = magnitudes.shape
+    bins, bin_width = np.linspace(0, 180, num=hist_bins, endpoint=False, retstep=True)
+
+    cell_grid = directions.reshape(H, W, C, 1)
+    cell_grid = abs(cell_grid - bins) / bin_width
+    idx = cell_grid > (90 / bin_width)
+    cell_grid[idx] = hist_bins - cell_grid[idx]
+    cell_grid = 1 - cell_grid
+    cell_grid[cell_grid < 0] = 0
+    cell_grid *= magnitudes.reshape(H, W, C, 1)
+
+    cell_grid = cell_grid.reshape(H // cell_size, cell_size, W // cell_size, cell_size, C, hist_bins)
+    return np.sum(cell_grid, axis=(1, 3))
+
+
 def HOG(
     image, orientations=9, cell_size=8, norm_grid=2, *,
     color=True, norm=metrics.EuclideanNorm
 ) :
-    H = image.shape[0]
-    W = image.shape[1]
-    if not color : image = image.reshape(H, W, 1)
+    if (image.shape[0] % cell_size) + (image.shape[1] % cell_size) != 0 :
+        raise ValueError("Image cannot be divided into exact cells. Check dimensions.\n")
+
+    if not color : image = image.reshape(image.shape[0], image.shape[1], 1)
 
     mags, dirs = __polar_gradient(image)
-
-    # if H % (cell_size * norm_grid) + W % (cell_size * norm_grid) != 0 :
-    #     raise ValueError("Image cannot be divided into exact cells. Check dimensions.\n")
-
-    h = H // cell_size
-    w = W // cell_size
-    cell_grid = dirs.reshape(h, cell_size, w, cell_size, -1, 1)
-    bins, bin_width = np.linspace(0, 180, num=orientations, endpoint=False, retstep=True)
-    cell_grid2 = (cell_grid - bins) / bin_width
-    grid_slice = cell_grid2[abs(cell_grid2) > 90 / bin_width]
-    grid_slice -= orientations * np.sign(grid_slice)
-    cell_grid2[abs(cell_grid2) > 1] = 0
-    pass
+    grid = __get_histograms(mags, dirs, orientations, cell_size)
 
 
 from PIL import Image

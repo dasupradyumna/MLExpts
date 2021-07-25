@@ -1,4 +1,10 @@
+from time import time
+
 import numpy as np
+# 32x32x3 color images of 10 classes of objects : 50000 training points, 10000 testing points
+from tensorflow.keras.datasets import cifar10
+# 28x28x1 gray images of handwritten digits (10 classes) : 60000 training points, 10000 testing points
+from tensorflow.keras.datasets import mnist
 
 import metrics
 from classifier import KNearestNeighbour, Linear
@@ -6,9 +12,6 @@ from neuralnet import Dense, NeuralNetwork
 
 
 def testKNN( ) :
-    # 28x28x1 gray images of handwritten digits (10 classes) : 60000 training points, 10000 testing points
-    from tensorflow.keras.datasets import mnist
-
     def preprocess( dataset ) :
         # subsample to 14x14 (not doing this increases execution time by 4 times, since images will be 4 times bigger)
         img_size = dataset.shape[1]
@@ -17,7 +20,6 @@ def testKNN( ) :
 
     ############ UNPACKING AND PREPROCESSING DATASET ############
 
-    from time import time
     start = time()
     (train_images, train_labels), (test_images, test_labels) = mnist.load_data()
     train_images = preprocess(train_images)
@@ -41,9 +43,6 @@ def testKNN( ) :
 
 
 def testLinear( ) :
-    # 32x32x3 color images of 10 classes of objects : 50000 training points, 10000 testing points
-    from tensorflow.keras.datasets import cifar10
-
     def preprocess( images, labels ) :
         # images : N x H x W x C, no. of images, height, width, channels of each image
         # labels : N x 1, true labels for each image
@@ -55,7 +54,6 @@ def testLinear( ) :
         labels = labels.reshape(N)  # making labels an N-vector
         return images, labels
 
-    from time import time
     start = time()
     NUM_CLASSES = 10
     NUM_ITERATIONS = 1000
@@ -111,9 +109,6 @@ def testLinear( ) :
 
 
 def testNN( ) :
-    # 32x32x3 color images of 10 classes of objects : 50000 training points, 10000 testing points
-    from tensorflow.keras.datasets import cifar10
-
     def preprocess( images, labels ) :  # sub-samples to 16x16 images before flattening it
         # images : N x H x W x C, no. of images, height, width, channels of each image
         # labels : N x 1, true labels for each image
@@ -152,7 +147,6 @@ def testNN( ) :
     print('------- Validation -------')
     accuracy_hp = []
     count = 0
-    from time import time
     for learning_rate, reg_lambda in hyperparameters :
         start = time()
         NNModel = NeuralNetwork(

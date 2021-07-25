@@ -17,7 +17,7 @@ class KNearestNeighbour :
     # calling an object of this class will give the prediction for the argument datapoint
     # only pass a single datapoint, does not support prediction of a set of points
     def __call__( self, test_point ) :
-        norms = self.distance_metric(test_point, self.datapoints)  # find distance to every point in training dataset
+        norms = self.distance_metric(self.datapoints - test_point)  # find distance to every point in training dataset
         k_nearest_idx = np.argpartition(norms, self.k - 1)[:self.k]  # partially sort k smallest values
         k_nearest_labels = self.labels[k_nearest_idx]  # find labels corresponding to above k smallest values
         return Counter(k_nearest_labels).most_common(1)[0][0]  # return prediction by majority count

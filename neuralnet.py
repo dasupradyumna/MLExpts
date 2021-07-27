@@ -12,11 +12,14 @@ class Dense :
         self.num_nodes = NumNodes  # number of nodes in current layer
         self.activation = Activation  # activation function to be applied to output of the affine product
         self.weights = None  # weights matrix connecting to previous layer
+        self.bias = None  # bias vector for current layer
         self.nodes = None  # array to store the values of current layer
         self.input = None  # cache of input array to the layer for backpropagation
 
     # initialize weights of the layer depending upon the activation function
     def init_weights( self, input_dim ) :
+        self.bias = np.zeros(self.num_nodes)  # zero-initialize the bias vector
+
         K = sqrt(1 / input_dim)
         if self.activation is metrics.Softmax :  # Xavier initialization for Softmax activated layers
             self.weights = np.random.uniform(-K, K, size=(input_dim, self.num_nodes))
@@ -30,15 +33,21 @@ class Dense :
             "Expected input to Dense layer is at most a 2D numpy array."
 
         self.input = datapoints  # caching input data
-        self.nodes = self.activation.forward(datapoints @ self.weights)
+        self.nodes = self.activation.forward(datapoints @ self.weights + self.bias)
         if loss is None : return self.nodes  # loss calculation is unnecessary for prediction
 
-        loss += 0.5 * np.sum(self.weights * self.weights)  # regularization term, lambda multiplied at the end
+        loss += 0.5 * (  # regularization term, lambda multiplied at the end
+            np.sum(self.weights * self.weights) +
+            np.sum(self.bias * self.bias)
+        )
         return self.nodes, loss
 
     # backpropagation step
     def backward( self, gradients, reg_lambda, learning_rate ) :
         gradients = self.activation.backward(gradients, self.nodes)  # gradient wrt activation function
+
+        self.bias -= learning_rate * (np.mean(gradients, axis=0) + reg_lambda * self.bias)
+
         weight_grads = np.mean(  # gradients for updating weights
             self.input[:, :, np.newaxis] @ gradients[:, np.newaxis, :],
             axis=0
@@ -46,6 +55,7 @@ class Dense :
         weight_grads += reg_lambda * self.weights  # gradient of regularization term
         gradients = gradients @ self.weights.T  # gradient for passing to previous layer
         self.weights -= learning_rate * weight_grads  # updating weights
+
         return gradients
 
     # display the details of the layer
@@ -60,32 +70,62 @@ class Dense :
 # Represents a Neural Network, which can hold multiple layers and a loss metric
 class NeuralNetwork :
 
-    def __init__( self, LossModel, InputDim, Layers ) :
+    def __init__( self, train_data, train_labels, LossModel, Layers ) :
+        self.check_data = train_data[: 1000]  # data for accuracy checking set
+        self.check_labels = train_labels[: 1000]  # labels for accuracy checking set
+        self.train_data = train_data[1000 :]  # data for training weights
+        self.train_labels = train_labels[1000 :]  # labels for training weights
         self.loss_model = LossModel
 
-        prev_output_size = InputDim
+        prev_output_size = train_data.shape[1]
         self.layers = []  # list of all layers
         for layer in Layers :  # initializing weights of all layers, using previous layer output size
             layer.init_weights(prev_output_size)
             self.layers.append(layer)  # populating layers list
             prev_output_size = layer.num_nodes
 
+    # loads previously saved weights into the network's layers
+    def load_weights( self, weights_list ) :
+        for layer_num in range(len(weights_list)) :
+            self.layers[layer_num].weights, self.layers[layer_num].bias = weights_list[layer_num]
+
     # train the weights of the model using a dataset and other parameters
-    def train( self, datapoints, labels, num_iterations, learning_rate ) :
-        batch_size = datapoints.shape[0] // num_iterations
-        loss_iterations = np.zeros(num_iterations)
-        for itr in np.random.permutation(range(num_iterations)) :  # random batch without replacement
-            # extracting a batch from the full dataset, using the above iterator
-            data_batch = datapoints[itr * batch_size : (itr + 1) * batch_size]
-            labels_batch = labels[itr * batch_size : (itr + 1) * batch_size]
-            scores, loss_iterations[itr] = self.forward(data_batch, labels_batch)  # calculate final scores and loss
+    def train( self, epochs, batch_size, learning_rate, lr_decay=0.5 ) :
+        EPOCHS_FOR_DECAY = 2  # number of epochs to decay learning rate at
+        num_data = self.train_data.shape[0]  # number of datapoints in training data
+        iterations_per_epoch = num_data // batch_size  # number of iterations per epoch
+        num_iterations = epochs * iterations_per_epoch  # total number of iterations
+
+        best_weights = None  # stores the best weights so far every epoch
+        best_accuracy = 0  # metric to update best weights
+        loss_iterations = np.zeros(num_iterations)  # stores the loss values over the iterations
+        for itr in range(num_iterations) :
+            # extracting a random batch from the full dataset, with replacement
+            batch = np.random.choice(num_data, batch_size)
+            labels_batch = self.train_labels[batch]
+
+            # calculate final scores and loss
+            scores, loss_iterations[itr] = self.forward(self.train_data[batch], labels_batch)
             """sanity check using numerical gradient calculation
             num_gradients = [
-                metrics.gradient_check(self, data_batch, layer.weights, labels_batch)
+                (metrics.gradient_check(self, data_batch, layer.weights, labels_batch),
+                 metrics.gradient_check(self, data_batch, layer.bias, labels_batch))
                 for layer in self.layers
             ]  # """
             self.backward(scores, labels_batch, learning_rate)  # update weights of all layers
 
+            # every epoch, check goodness of current weights and update best weights if current weights are better
+            if (itr + 1) % iterations_per_epoch == 0 :
+                check_accuracy = np.sum(self.check_labels == self.predict(self.check_data)) / 10
+                if check_accuracy > best_accuracy :
+                    best_accuracy = check_accuracy
+                    best_weights = [(layer.weights, layer.bias) for layer in self.layers]
+
+                # decay learning rate every fixed number of epochs
+                if (itr + 1) % (EPOCHS_FOR_DECAY * iterations_per_epoch) == 0 :
+                    learning_rate *= lr_decay
+
+        self.load_weights(best_weights)  # load the best weights of the entire training session
         return loss_iterations
 
     # predict an output class for given input datapoint(s)

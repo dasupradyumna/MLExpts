@@ -118,14 +118,12 @@ def testNN( ) :
         images = images / 255  # normalize pixel values to [0,1] interval
         images -= np.mean(images, axis=(1, 2), keepdims=True)  # N x 1 x 1 x C : mean per channel per image
         images = images.reshape(N, -1)  # N x K, K features (all pixels)
-        dataset = np.hstack((images, np.ones((N, 1)), labels))  # appending a column of 1s for including bias in weights
-        np.random.shuffle(dataset)  # shuffling dataset for generalization in training and testing
-        images, labels = dataset[:, :-1], dataset[:, -1]
-        labels = labels.astype(int).reshape(N)  # making labels an N-vector
+        labels = labels.reshape(N)  # making labels an N-vector
         return images, labels
 
     NUM_CLASSES = 10
-    NUM_ITERATIONS = 1000
+    EPOCHS = 6
+    BATCH_SIZE = 100
 
     ############ UNPACKING AND PREPROCESSING DATASET ############
 
@@ -139,26 +137,27 @@ def testNN( ) :
 
     ############ TUNING HYPERPARAMETERS AND VALIDATION ############
 
-    hyperparameters = np.zeros((4, 6, 2))
-    hyperparameters[:, :, 0] = np.array([1, 0.5, 0.1, 1e-2])[:, np.newaxis]  # learning_rate
-    hyperparameters[:, :, 1] = np.array([1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8])[np.newaxis, :]  # reg_lambda
+    hyperparameters = np.zeros((2, 3, 2))
+    hyperparameters[:, :, 0] = np.array([1, 0.5])[:, np.newaxis]  # learning_rate
+    hyperparameters[:, :, 1] = np.array([1e-4, 1e-6, 1e-8])[np.newaxis, :]  # reg_lambda
     hyperparameters = hyperparameters.reshape(-1, 2)
 
     print("------- Validation -------")
     accuracy_hp = []
-    count = 0
+    count = 1
     for learning_rate, reg_lambda in hyperparameters :
         start = time()
         NNModel = NeuralNetwork(
+            train_images,
+            train_labels,
             metrics.SparseCELoss(reg_lambda),
-            InputDim=train_images.shape[1],
             Layers=[
                 Dense(64, metrics.ReLU),
                 Dense(32, metrics.ReLU),
                 Dense(NUM_CLASSES, metrics.Softmax)
             ]
         )
-        NNModel.train(train_images, train_labels, NUM_ITERATIONS, learning_rate)
+        NNModel.train(EPOCHS, BATCH_SIZE, learning_rate)
         predictions = NNModel.predict(validation_images)
         correct = np.sum(predictions == validation_labels)
         accuracy_hp.append(100 * correct / len(validation_labels))  # log accuracy for current configuration
@@ -172,8 +171,9 @@ def testNN( ) :
     start = time()
     learning_rate, reg_lambda = hyperparameters[np.argmax(accuracy_hp)]  # best configuration
     NNModel = NeuralNetwork(
+        train_images,
+        train_labels,
         metrics.SparseCELoss(reg_lambda),
-        InputDim=train_images.shape[1],
         Layers=[
             Dense(64, metrics.ReLU),
             Dense(32, metrics.ReLU),
@@ -181,14 +181,15 @@ def testNN( ) :
         ]
     )
     NNModel.details()
-    NNModel.train(train_images, train_labels, NUM_ITERATIONS, learning_rate)
+    NNModel.train(EPOCHS, BATCH_SIZE, learning_rate)
     predictions = NNModel.predict(test_images)
     correct = np.sum(predictions == test_labels)
 
-    print(f"Total Time elapsed : {time() - start}s")
+    print(f"Total Time elapsed : {(time() - start):.3f}s")
     print(f"Accuracy = {correct}/{len(test_labels)} : {100 * correct / len(test_labels)}%")
 
-    if __name__ == "__main__" :
-        # testKNN()
-        # testLinear()
-        testNN()
+
+if __name__ == '__main__' :
+    # testKNN()
+    # testLinear()
+    testNN()

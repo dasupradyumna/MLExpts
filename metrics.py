@@ -24,11 +24,17 @@ def gradient_check( model, datapoints, weights, labels ) :
     gradients = np.zeros_like(weights)
     h = 1e-8  # perturbation value
     for row in range(gradients.shape[0]) :
-        for col in range(gradients.shape[1]) :
-            weights[row, col] += h  # disturb each weight value by h
+        if gradients.ndim == 1 :
+            weights[row] += h  # disturb each weight value by h
             _, new_loss = model.forward(datapoints, labels)  # perturbed loss value
-            gradients[row, col] = (new_loss - current_loss) / h  # first principles of differentiation
-            weights[row, col] -= h  # restoring weight matrix
+            gradients[row] = (new_loss - current_loss) / h  # first principles of differentiation
+            weights[row] -= h  # restoring weight matrix
+        else :
+            for col in range(gradients.shape[1]) :
+                weights[row, col] += h  # disturb each weight value by h
+                _, new_loss = model.forward(datapoints, labels)  # perturbed loss value
+                gradients[row, col] = (new_loss - current_loss) / h  # first principles of differentiation
+                weights[row, col] -= h  # restoring weight matrix
 
     return gradients
 
@@ -49,7 +55,7 @@ class MultiSVMLoss :
         loss = np.maximum(0, scores - true_label_scores + self.margin)  # N x C, loss for each datapoint and each class
         loss[np.arange(labels.size), labels] = 0  # setting loss value for true labels to zero
         self.loss_cache = (loss > 0)  # caching binary loss values, loss > 0 : 1 else 0 (derivative of Hinge loss)
-        loss = np.sum(loss, axis=1)  # N-vector, summing up loss over all classes for each datapoint
+        loss = np.sum(loss, axis=-1)  # N-vector, summing up loss over all classes for each datapoint
         loss = np.mean(loss)  # scalar, taking average of losses over all datapoints
         loss += self.reg_lambda * reg_loss  # regularization term
 
@@ -60,7 +66,7 @@ class MultiSVMLoss :
     def backward( self, _, labels ) :
         gradients = self.loss_cache.astype(int)  # N x C, extracting cached loss
         # N-vector, setting loss_01 values for true labels equal to sum of ones in each row (datapoint)
-        gradients[np.arange(labels.size), labels] = -np.sum(gradients, axis=1)
+        gradients[np.arange(labels.size), labels] = -np.sum(gradients, axis=-1)
 
         return gradients, self.reg_lambda
 

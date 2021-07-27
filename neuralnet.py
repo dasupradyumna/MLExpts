@@ -81,18 +81,19 @@ class NeuralNetwork :
             prev_output_size = layer.num_nodes
 
     # train the weights of the model using a dataset and other parameters
-    def train( self, datapoints, labels, num_iterations, learning_rate ) :
-        # TODO : random batches with replacement
-        # TODO : add training epochs, 1 epoch = batch size * iterations per epoch
+    def train( self, datapoints, labels, epochs, batch_size, learning_rate ) :
         # TODO : learning rate decay with epochs
         # TODO : keep track of best weights, end of each epoch
-        batch_size = datapoints.shape[0] // num_iterations
+        iterations_per_epoch = datapoints.shape[0] // batch_size
+        num_iterations = epochs * iterations_per_epoch
         loss_iterations = np.zeros(num_iterations)
-        for itr in np.random.permutation(range(num_iterations)) :  # random batch without replacement
-            # extracting a batch from the full dataset, using the above iterator
-            data_batch = datapoints[itr * batch_size : (itr + 1) * batch_size]
-            labels_batch = labels[itr * batch_size : (itr + 1) * batch_size]
-            scores, loss_iterations[itr] = self.forward(data_batch, labels_batch)  # calculate final scores and loss
+        for itr in range(1, num_iterations + 1) :
+            # extracting a batch from the full dataset, with replacement
+            batch = np.random.randint(0, datapoints.shape[0], batch_size)
+            data_batch = datapoints[batch]
+            labels_batch = labels[batch]
+
+            scores, loss_iterations[itr-1] = self.forward(data_batch, labels_batch)  # calculate final scores and loss
             """sanity check using numerical gradient calculation
             num_gradients = [
                 (metrics.gradient_check(self, data_batch, layer.weights, labels_batch),

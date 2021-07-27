@@ -123,11 +123,12 @@ def testNN( ) :
         images = images / 255  # normalize pixel values to [0,1] interval
         images -= np.mean(images, axis=(1, 2)).reshape((N, 1, 1, -1))  # N x 1 x 1 x C : mean per channel per image
         images = images.reshape((N, -1))  # N x K, K features (all pixels)
-        labels = labels.astype(int).reshape(N)  # making labels an N-vector
+        labels = labels.reshape(N)  # making labels an N-vector
         return images, labels
 
     NUM_CLASSES = 10
-    NUM_ITERATIONS = 1000
+    EPOCHS = 2
+    BATCH_SIZE = 100
 
     ############ UNPACKING AND PREPROCESSING DATASET ############
 
@@ -161,7 +162,7 @@ def testNN( ) :
                 Dense(NUM_CLASSES, metrics.Softmax)
             ]
         )
-        NNModel.train(train_images, train_labels, NUM_ITERATIONS, learning_rate)
+        NNModel.train(train_images, train_labels, EPOCHS, BATCH_SIZE, learning_rate)
         predictions = NNModel.predict(validation_images)
         correct = np.sum(predictions == validation_labels)
         accuracy_hp.append(100 * correct / len(validation_labels))  # log accuracy for current configuration
@@ -184,7 +185,7 @@ def testNN( ) :
         ]
     )
     NNModel.details()
-    NNModel.train(train_images, train_labels, NUM_ITERATIONS, learning_rate)
+    NNModel.train(train_images, train_labels, EPOCHS, BATCH_SIZE, learning_rate)
     predictions = NNModel.predict(test_images)
     correct = np.sum(predictions == test_labels)
 

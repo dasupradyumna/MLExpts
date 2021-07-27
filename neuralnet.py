@@ -71,8 +71,10 @@ class Dense :
 class NeuralNetwork :
 
     def __init__( self, train_data, train_labels, LossModel, Layers ) :
-        self.train_data = train_data
-        self.train_labels = train_labels
+        self.check_data = train_data[: 1000]  # data for accuracy checking set
+        self.check_labels = train_labels[: 1000]  # labels for accuracy checking set
+        self.train_data = train_data[1000 :]  # data for training weights
+        self.train_labels = train_labels[1000 :]  # labels for training weights
         self.loss_model = LossModel
 
         prev_output_size = train_data.shape[1]
@@ -82,20 +84,28 @@ class NeuralNetwork :
             self.layers.append(layer)  # populating layers list
             prev_output_size = layer.num_nodes
 
+    # loads previously saved weights into the network's layers
+    def load_weights( self, weights_list ) :
+        for layer_num in range(len(weights_list)) :
+            self.layers[layer_num].weights, self.layers[layer_num].bias = weights_list[layer_num]
+
     # train the weights of the model using a dataset and other parameters
     def train( self, epochs, batch_size, learning_rate, lr_decay=0.5 ) :
-        # TODO : keep track of best weights, end of each epoch
-        iterations_per_epoch = self.train_data.shape[0] // batch_size
-        num_iterations = epochs * iterations_per_epoch
+        EPOCHS_FOR_DECAY = 2  # number of epochs to decay learning rate at
+        num_data = self.train_data.shape[0]  # number of datapoints in training data
+        iterations_per_epoch = num_data // batch_size  # number of iterations per epoch
+        num_iterations = epochs * iterations_per_epoch  # total number of iterations
 
-        loss_iterations = np.zeros(num_iterations)
+        best_weights = None  # stores the best weights so far every epoch
+        best_accuracy = 0  # metric to update best weights
+        loss_iterations = np.zeros(num_iterations)  # stores the loss values over the iterations
         for itr in range(num_iterations) :
             # extracting a random batch from the full dataset, with replacement
-            batch = np.random.randint(0, self.train_data.shape[0], batch_size)
-            data_batch = self.train_data[batch]
+            batch = np.random.choice(num_data, batch_size)
             labels_batch = self.train_labels[batch]
 
-            scores, loss_iterations[itr] = self.forward(data_batch, labels_batch)  # calculate final scores and loss
+            # calculate final scores and loss
+            scores, loss_iterations[itr] = self.forward(self.train_data[batch], labels_batch)
             """sanity check using numerical gradient calculation
             num_gradients = [
                 (metrics.gradient_check(self, data_batch, layer.weights, labels_batch),
@@ -104,15 +114,22 @@ class NeuralNetwork :
             ]  # """
             self.backward(scores, labels_batch, learning_rate)  # update weights of all layers
 
-            EPOCHS_FOR_DECAY = 2
-            if (itr + 1) % (EPOCHS_FOR_DECAY * iterations_per_epoch) == 0 :
-                learning_rate *= lr_decay
+            # every epoch, check goodness of current weights and update best weights if current weights are better
+            if (itr + 1) % iterations_per_epoch == 0 :
+                check_accuracy = np.sum(self.check_labels == self.predict(self.check_data)) / 10
+                if check_accuracy > best_accuracy :
+                    best_accuracy = check_accuracy
+                    best_weights = [(layer.weights, layer.bias) for layer in self.layers]
 
+                # decay learning rate every fixed number of epochs
+                if (itr + 1) % (EPOCHS_FOR_DECAY * iterations_per_epoch) == 0 :
+                    learning_rate *= lr_decay
+
+        self.load_weights(best_weights)  # load the best weights of the entire training session
         return loss_iterations
 
     # predict an output class for given input datapoint(s)
     def predict( self, test_points ) :
-        # TODO : add batch size prediction
         nodes = test_points
         for layer in self.layers :  # propagating data forwards through each layer
             nodes = layer.forward(nodes)

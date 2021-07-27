@@ -40,7 +40,7 @@ class Dense :
     def backward( self, gradients, reg_lambda, learning_rate ) :
         gradients = self.activation.backward(gradients, self.nodes)  # gradient wrt activation function
         weight_grads = np.mean(  # gradients for updating weights
-            self.input.reshape((-1, self.input.shape[1], 1)) @ gradients.reshape((-1, 1, self.num_nodes)),
+            self.input[:, :, np.newaxis] @ gradients[:, np.newaxis, :],
             axis=0
         )
         weight_grads += reg_lambda * self.weights  # gradient of regularization term
@@ -93,8 +93,7 @@ class NeuralNetwork :
         nodes = test_points
         for layer in self.layers :  # propagating data forwards through each layer
             nodes = layer.forward(nodes)
-        axis = int(nodes.ndim == 2)
-        return np.argmax(nodes, axis)  # find index of max score
+        return np.argmax(nodes, axis=-1)  # find index of max score
 
     # forward pass
     def forward( self, datapoints, labels ) :
@@ -114,15 +113,15 @@ class NeuralNetwork :
     # display the details of the network's structure
     def details( self ) :
         print("Model structure :")
-        print(' -' * 30)
+        print(" -" * 30)
         print(
             "|{0:^11}|{1:^17}|{2:^14}|{3:^14}|".format(
                 "Layer", "Shape", "Parameters", "Activation"
             )
         )
-        print(' -' * 30)
+        print(" -" * 30)
         for layer in self.layers : layer.details()
-        print(' -' * 30)
+        print(" -" * 30)
         print("| Input dimension  :  {0:<38}|".format(self.layers[0].weights.shape[0]))
         print("| Output dimension :  {0:<38}|".format(self.layers[-1].num_nodes))
-        print(' -' * 30)
+        print(" -" * 30)

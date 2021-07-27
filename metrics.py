@@ -26,11 +26,17 @@ def gradient_check( model, datapoints, weights, labels ) :
     gradients = np.zeros(weights.shape)
     h = 1e-8  # perturbation value
     for row in range(gradients.shape[0]) :
-        for col in range(gradients.shape[1]) :
-            weights[row, col] += h  # disturb each weight value by h
+        if gradients.ndim == 1 :
+            weights[row] += h  # disturb each weight value by h
             _, new_loss = model.forward(datapoints, labels)  # perturbed loss value
-            gradients[row, col] = (new_loss - current_loss) / h  # first principles of differentiation
-            weights[row, col] -= h  # restoring weight matrix
+            gradients[row] = (new_loss - current_loss) / h  # first principles of differentiation
+            weights[row] -= h  # restoring weight matrix
+        else :
+            for col in range(gradients.shape[1]) :
+                weights[row, col] += h  # disturb each weight value by h
+                _, new_loss = model.forward(datapoints, labels)  # perturbed loss value
+                gradients[row, col] = (new_loss - current_loss) / h  # first principles of differentiation
+                weights[row, col] -= h  # restoring weight matrix
 
     return gradients
 

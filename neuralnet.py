@@ -70,10 +70,12 @@ class Dense :
 # Represents a Neural Network, which can hold multiple layers and a loss metric
 class NeuralNetwork :
 
-    def __init__( self, LossModel, InputDim, Layers ) :
+    def __init__( self, train_data, train_labels, LossModel, Layers ) :
+        self.train_data = train_data
+        self.train_labels = train_labels
         self.loss_model = LossModel
 
-        prev_output_size = InputDim
+        prev_output_size = train_data.shape[1]
         self.layers = []  # list of all layers
         for layer in Layers :  # initializing weights of all layers, using previous layer output size
             layer.init_weights(prev_output_size)
@@ -81,19 +83,19 @@ class NeuralNetwork :
             prev_output_size = layer.num_nodes
 
     # train the weights of the model using a dataset and other parameters
-    def train( self, datapoints, labels, epochs, batch_size, learning_rate ) :
-        # TODO : learning rate decay with epochs
+    def train( self, epochs, batch_size, learning_rate, lr_decay=0.5 ) :
         # TODO : keep track of best weights, end of each epoch
-        iterations_per_epoch = datapoints.shape[0] // batch_size
+        iterations_per_epoch = self.train_data.shape[0] // batch_size
         num_iterations = epochs * iterations_per_epoch
-        loss_iterations = np.zeros(num_iterations)
-        for itr in range(1, num_iterations + 1) :
-            # extracting a batch from the full dataset, with replacement
-            batch = np.random.randint(0, datapoints.shape[0], batch_size)
-            data_batch = datapoints[batch]
-            labels_batch = labels[batch]
 
-            scores, loss_iterations[itr-1] = self.forward(data_batch, labels_batch)  # calculate final scores and loss
+        loss_iterations = np.zeros(num_iterations)
+        for itr in range(num_iterations) :
+            # extracting a random batch from the full dataset, with replacement
+            batch = np.random.randint(0, self.train_data.shape[0], batch_size)
+            data_batch = self.train_data[batch]
+            labels_batch = self.train_labels[batch]
+
+            scores, loss_iterations[itr] = self.forward(data_batch, labels_batch)  # calculate final scores and loss
             """sanity check using numerical gradient calculation
             num_gradients = [
                 (metrics.gradient_check(self, data_batch, layer.weights, labels_batch),
@@ -101,6 +103,10 @@ class NeuralNetwork :
                 for layer in self.layers
             ]  # """
             self.backward(scores, labels_batch, learning_rate)  # update weights of all layers
+
+            EPOCHS_FOR_DECAY = 2
+            if (itr + 1) % (EPOCHS_FOR_DECAY * iterations_per_epoch) == 0 :
+                learning_rate *= lr_decay
 
         return loss_iterations
 

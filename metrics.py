@@ -5,18 +5,16 @@ import numpy as np
 # dim0 = no. of datapoints
 # dim1 = data contained in one datapoint
 
-# square-root of sum of squares of differences
-def EuclideanNorm( x, y ) :
-    assert x.ndim <= 2 and y.ndim <= 2, \
-        "Expected argument is at most a 2D numpy array."
-    return np.sqrt(np.sum((x - y) * (x - y), axis=-1))
+# square-root of sum of squares of values
+def EuclideanNorm( x ) :
+    assert x.ndim <= 2, "Expected argument is at most a 2D numpy array."
+    return np.sqrt(np.sum(np.square(x), axis=-1))
 
 
-# sum of magnitudes of differences
-def ManhattanNorm( x, y ) :
-    assert x.ndim <= 2 and y.ndim <= 2, \
-        "Expected argument is at most a 2D numpy array."
-    return np.sum(abs(x - y), axis=-1)
+# sum of magnitudes of values
+def ManhattanNorm( x ) :
+    assert x.ndim <= 2, "Expected argument is at most a 2D numpy array."
+    return np.sum(np.absolute(x), axis=-1)
 
 
 # calculates gradients numerically using first principle; sanity check for analytical gradient functions

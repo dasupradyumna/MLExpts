@@ -8,13 +8,13 @@ import numpy as np
 # square-root of sum of squares of values
 def EuclideanNorm( x ) :
     assert x.ndim <= 2, "Expected argument is at most a 2D numpy array."
-    return np.sqrt(np.sum(x * x, axis=-1))
+    return np.sqrt(np.sum(np.square(x), axis=-1))
 
 
 # sum of magnitudes of values
 def ManhattanNorm( x ) :
     assert x.ndim <= 2, "Expected argument is at most a 2D numpy array."
-    return np.sum(abs(x), axis=-1)
+    return np.sum(np.abs(x), axis=-1)
 
 
 # calculates gradients numerically using first principle; sanity check for analytical gradient functions
@@ -66,7 +66,7 @@ class MultiSVMLoss :
     def backward( self, _, labels ) :
         gradients = self.loss_cache.astype(int)  # N x C, extracting cached loss
         # N-vector, setting loss_01 values for true labels equal to sum of ones in each row (datapoint)
-        gradients[np.arange(labels.size), labels] = -np.sum(gradients, axis=-1)
+        gradients[np.arange(labels.size), labels] = - np.sum(gradients, axis=-1)
 
         return gradients, self.reg_lambda
 

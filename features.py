@@ -34,7 +34,7 @@ def __get_histograms( magnitudes, directions, hist_bins, cell_size ) :
     cell_grid *= magnitudes[..., np.newaxis]
 
     H, W = magnitudes.shape
-    cell_grid = cell_grid.reshape(H // cell_size, cell_size, W // cell_size, cell_size, hist_bins)
+    cell_grid.resize(H // cell_size, cell_size, W // cell_size, cell_size, hist_bins)
     return np.sum(cell_grid, axis=(1, 3))
 
 
@@ -46,7 +46,7 @@ def __normalize_histograms( grid, norm_block ) :
     idxW = idxW[np.newaxis, :, np.newaxis, :]
 
     blocks = grid[idxH, idxW]
-    blocks = blocks.reshape(-1, norm_block * norm_block, bins)
+    blocks.resize(blocks.shape[0] * blocks.shape[1], norm_block * norm_block, bins)
     blocks_norm = np.linalg.norm(blocks, axis=(1, 2), keepdims=True)
     np.divide(blocks, blocks_norm, out=blocks, where=(blocks_norm != 0))
     return blocks.flatten()

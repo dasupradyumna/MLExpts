@@ -1,5 +1,3 @@
-from math import sqrt
-
 import numpy as np
 
 import metrics
@@ -20,11 +18,11 @@ class Dense :
     def init_weights( self, input_dim ) :
         self.bias = np.zeros(self.num_nodes)  # zero-initialize the bias vector
 
-        K = sqrt(1 / input_dim)
+        K = np.sqrt(1 / input_dim)
         if self.activation is metrics.Softmax :  # Xavier initialization for Softmax activated layers
             self.weights = np.random.uniform(-K, K, size=(input_dim, self.num_nodes))
         elif self.activation is metrics.ReLU :  # He initialization for ReLU activated layers
-            self.weights = np.random.normal(scale=sqrt(2) * K, size=(input_dim, self.num_nodes))
+            self.weights = np.random.normal(scale=np.sqrt(2) * K, size=(input_dim, self.num_nodes))
 
     # forward pass
     def forward( self, datapoints, loss=None ) :
@@ -37,8 +35,8 @@ class Dense :
         if loss is None : return self.nodes  # loss calculation is unnecessary for prediction
 
         loss += 0.5 * (  # regularization term, lambda multiplied at the end
-            np.sum(self.weights * self.weights) +
-            np.sum(self.bias * self.bias)
+            np.sum(np.square(self.weights)) +
+            np.sum(np.square(self.bias))
         )
         return self.nodes, loss
 
@@ -126,7 +124,7 @@ class NeuralNetwork :
                     learning_rate *= lr_decay
 
         self.load_weights(best_weights)  # load the best weights of the entire training session
-        return loss_iterations
+        return loss_iterations, best_weights
 
     # predict an output class for given input datapoint(s)
     def predict( self, test_points ) :

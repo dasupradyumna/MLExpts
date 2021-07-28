@@ -15,7 +15,7 @@ def testKNN( ) :
     def preprocess( dataset ) :
         # subsample to 14x14 (not doing this increases execution time by 4 times, since images will be 4 times bigger)
         num_data, img_size = dataset.shape
-        dataset = dataset.reshape(-1, img_size // 2, 2, img_size // 2, 2).max(axis=(2, 4))
+        dataset = dataset.reshape(-1, img_size // 2, 2, img_size // 2, 2).max(axis=(2, 4)).copy()  # contiguous array
         return dataset.reshape(num_data, -1)  # flatten 14x14 to 196
 
     ############ UNPACKING AND PREPROCESSING DATASET ############
@@ -46,12 +46,12 @@ def testLinear( ) :
     def preprocess( images, labels ) :
         # images : N x H x W x C, no. of images, height, width, channels of each image
         # labels : N x 1, true labels for each image
-        N = images.shape[0]
+        N, H, W, C = images.shape[0]
         images = images / 255  # normalize pixel values to [0,1] interval
         images -= np.mean(images, axis=(1, 2), keepdims=True)  # N x 1 x 1 x C : mean per channel per image
-        images = images.reshape(N, -1)  # N x K, K features (all pixels)
+        images.resize(N, H * W * C)  # N x K, K features (all pixels)
         images = np.hstack((images, np.ones((N, 1))))  # appending a column of 1s for including bias in weights
-        labels = labels.reshape(N)  # making labels an N-vector
+        labels.resize(N)  # making labels an N-vector
         return images, labels
 
     start = time()
@@ -76,7 +76,7 @@ def testLinear( ) :
     # hyperparameters[:, :, :, 0] = np.array([0.01, 0.05, 0.1, 0.5]).reshape((4, 1, 1))  # loss_margin
     hyperparameters[:, :, 0] = np.array([0.5, 0.1, 1e-2, 1e-3])[:, np.newaxis]  # learning_rate
     hyperparameters[:, :, 1] = np.array([1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8])[np.newaxis, :]  # reg_lambda
-    hyperparameters = hyperparameters.reshape(-1, 2)
+    hyperparameters.resize(24, 2)
 
     print("------- Validation -------")
     accuracy_hp = []
@@ -112,17 +112,17 @@ def testNN( ) :
     def preprocess( images, labels ) :  # sub-samples to 16x16 images before flattening it
         # images : N x H x W x C, no. of images, height, width, channels of each image
         # labels : N x 1, true labels for each image
-        N = images.shape[0]
-        W = images.shape[1]
-        images = images.reshape(-1, W // 2, 2, W // 2, 2, 3).max(axis=(2, 4))
+        if images.ndim == 3 : images = images[..., np.newaxis]
+        N, H, W, C = images.shape
+        images = images.reshape(-1, H // 2, 2, W // 2, 2, C).max(axis=(2, 4)).copy()  # copy to new contiguous array
         images = images / 255  # normalize pixel values to [0,1] interval
         images -= np.mean(images, axis=(1, 2), keepdims=True)  # N x 1 x 1 x C : mean per channel per image
-        images = images.reshape(N, -1)  # N x K, K features (all pixels)
-        labels = labels.reshape(N)  # making labels an N-vector
+        images.resize(N, H * W * C)  # N x K, K features (all pixels) (only works on contiguous arrays)
+        labels.resize(N)  # making labels an N-vector
         return images, labels
 
     NUM_CLASSES = 10
-    EPOCHS = 6
+    EPOCHS = 10
     BATCH_SIZE = 100
 
     ############ UNPACKING AND PREPROCESSING DATASET ############
@@ -140,10 +140,12 @@ def testNN( ) :
     hyperparameters = np.zeros((2, 3, 2))
     hyperparameters[:, :, 0] = np.array([1, 0.5])[:, np.newaxis]  # learning_rate
     hyperparameters[:, :, 1] = np.array([1e-4, 1e-6, 1e-8])[np.newaxis, :]  # reg_lambda
-    hyperparameters = hyperparameters.reshape(-1, 2)
+    hyperparameters.resize(6, 2)
 
     print("------- Validation -------")
+    NNModel = None
     accuracy_hp = []
+    best_weights_hp = []
     count = 1
     for learning_rate, reg_lambda in hyperparameters :
         start = time()
@@ -157,7 +159,7 @@ def testNN( ) :
                 Dense(NUM_CLASSES, metrics.Softmax)
             ]
         )
-        NNModel.train(EPOCHS, BATCH_SIZE, learning_rate)
+        best_weights_hp.append(NNModel.train(EPOCHS, BATCH_SIZE, learning_rate)[1])
         predictions = NNModel.predict(validation_images)
         correct = np.sum(predictions == validation_labels)
         accuracy_hp.append(100 * correct / len(validation_labels))  # log accuracy for current configuration
@@ -169,19 +171,8 @@ def testNN( ) :
 
     print("\n------- Testing -------")
     start = time()
-    learning_rate, reg_lambda = hyperparameters[np.argmax(accuracy_hp)]  # best configuration
-    NNModel = NeuralNetwork(
-        train_images,
-        train_labels,
-        metrics.SparseCELoss(reg_lambda),
-        Layers=[
-            Dense(64, metrics.ReLU),
-            Dense(32, metrics.ReLU),
-            Dense(NUM_CLASSES, metrics.Softmax)
-        ]
-    )
     NNModel.details()
-    NNModel.train(EPOCHS, BATCH_SIZE, learning_rate)
+    NNModel.load_weights(best_weights_hp[np.argmax(accuracy_hp)])
     predictions = NNModel.predict(test_images)
     correct = np.sum(predictions == test_labels)
 

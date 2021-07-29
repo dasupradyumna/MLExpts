@@ -21,7 +21,7 @@ def ManhattanNorm( x ) :
 # datapoints : input to model, weights : target of gradient, labels : output of model
 def gradient_check( model, datapoints, weights, labels ) :
     _, current_loss = model.forward(datapoints, labels)
-    gradients = np.zeros(weights.shape)
+    gradients = np.zeros_like(weights)
     h = 1e-8  # perturbation value
     for row in range(gradients.shape[0]) :
         if gradients.ndim == 1 :
@@ -50,9 +50,8 @@ class MultiSVMLoss :
     # calculate loss based from the output scores from model
     # scores : N x C array, labels : N-vector, reg_loss : loss summed up from regularization of weights
     def forward( self, scores, labels, reg_loss ) :
-        true_label_scores = scores[np.arange(labels.size), labels].reshape(
-            (-1, 1)
-        )  # N x 1, contains scores corresponding to true labels
+        # N x 1, contains scores corresponding to true labels
+        true_label_scores = scores[np.arange(labels.size), labels][:, np.newaxis]
         loss = np.maximum(0, scores - true_label_scores + self.margin)  # N x C, loss for each datapoint and each class
         loss[np.arange(labels.size), labels] = 0  # setting loss value for true labels to zero
         self.loss_cache = (loss > 0)  # caching binary loss values, loss > 0 : 1 else 0 (derivative of Hinge loss)
@@ -67,7 +66,7 @@ class MultiSVMLoss :
     def backward( self, _, labels ) :
         gradients = self.loss_cache.astype(int)  # N x C, extracting cached loss
         # N-vector, setting loss_01 values for true labels equal to sum of ones in each row (datapoint)
-        gradients[np.arange(labels.size), labels] = -np.sum(gradients, axis=-1)
+        gradients[np.arange(labels.size), labels] = - np.sum(gradients, axis=-1)
 
         return gradients, self.reg_lambda
 
@@ -90,7 +89,7 @@ class SparseCELoss :
     # calculate gradients of loss wrt the output scores of model
     # softmax_scores : N x C array, labels : N-vector
     def backward( self, softmax_scores, labels ) :
-        gradients = np.zeros(softmax_scores.shape)
+        gradients = np.zeros_like(softmax_scores)
         gradients[np.arange(labels.size), labels] = - 1 / softmax_scores[np.arange(labels.size), labels]
         return gradients, self.reg_lambda
 
@@ -109,11 +108,11 @@ class Softmax :
     @staticmethod
     def backward( gradients, scores ) :
         num_nodes = scores.shape[1]
-        softmax_grads = - scores.reshape((-1, num_nodes, 1)) @ scores.reshape((-1, 1, num_nodes))
+        softmax_grads = - scores[:, :, np.newaxis] @ scores[:, np.newaxis, :]
         idx = np.arange(num_nodes)
         softmax_grads[:, idx, idx] += scores[:, idx]
-        gradients = gradients.reshape((-1, 1, num_nodes)) @ softmax_grads
-        return gradients.reshape((-1, num_nodes))
+        gradients = gradients[:, np.newaxis, :] @ softmax_grads
+        return gradients.squeeze()
 
 
 # ReLU activation

@@ -60,15 +60,14 @@ class Linear :
 
     # predict an output class for given input datapoint(s)
     def predict( self, test_points ) :  # test_points can be 1d or 2d array
-        axis = int(test_points.ndim == 2)
-        return np.argmax(test_points @ self.weights, axis)  # N x C, if 2d input array else C-vector
+        return np.argmax(test_points @ self.weights, axis=-1)  # N x C, if 2d input array else C-vector
 
     # forward pass
     def forward( self, datapoints, labels ) :
         scores = datapoints @ self.weights
         if isinstance(self.loss_model, metrics.SparseCELoss) :  # if loss is CrossEntropy, calculate softmax of scores
             scores = metrics.Softmax.forward(scores)
-        loss = self.loss_model.forward(scores, labels, 0.5 * np.sum(self.weights ** 2))
+        loss = self.loss_model.forward(scores, labels, 0.5 * np.sum(np.square(self.weights)))
         return scores, loss
 
     # backpropagation step

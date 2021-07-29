@@ -1,5 +1,3 @@
-from math import sqrt
-
 import numpy as np
 
 import metrics
@@ -20,11 +18,11 @@ class Dense :
     def init_weights( self, input_dim ) :
         self.bias = np.zeros(self.num_nodes)  # zero-initialize the bias vector
 
-        K = sqrt(1 / input_dim)
+        K = np.sqrt(1 / input_dim)
         if self.activation is metrics.Softmax :  # Xavier initialization for Softmax activated layers
             self.weights = np.random.uniform(-K, K, size=(input_dim, self.num_nodes))
         elif self.activation is metrics.ReLU :  # He initialization for ReLU activated layers
-            self.weights = np.random.normal(scale=sqrt(2) * K, size=(input_dim, self.num_nodes))
+            self.weights = np.random.normal(scale=np.sqrt(2) * K, size=(input_dim, self.num_nodes))
 
     # forward pass
     def forward( self, datapoints, loss=None ) :
@@ -37,8 +35,8 @@ class Dense :
         if loss is None : return self.nodes  # loss calculation is unnecessary for prediction
 
         loss += 0.5 * (  # regularization term, lambda multiplied at the end
-            np.sum(self.weights * self.weights) +
-            np.sum(self.bias * self.bias)
+            np.sum(np.square(self.weights)) +
+            np.sum(np.square(self.bias))
         )
         return self.nodes, loss
 
@@ -49,7 +47,7 @@ class Dense :
         self.bias -= learning_rate * (np.mean(gradients, axis=0) + reg_lambda * self.bias)
 
         weight_grads = np.mean(  # gradients for updating weights
-            self.input.reshape((-1, self.input.shape[1], 1)) @ gradients.reshape((-1, 1, self.num_nodes)),
+            self.input[:, :, np.newaxis] @ gradients[:, np.newaxis, :],
             axis=0
         )
         weight_grads += reg_lambda * self.weights  # gradient of regularization term
@@ -126,7 +124,7 @@ class NeuralNetwork :
                     learning_rate *= lr_decay
 
         self.load_weights(best_weights)  # load the best weights of the entire training session
-        return loss_iterations
+        return loss_iterations, best_weights
 
     # predict an output class for given input datapoint(s)
     def predict( self, test_points ) :
@@ -153,15 +151,15 @@ class NeuralNetwork :
     # display the details of the network's structure
     def details( self ) :
         print("Model structure :")
-        print(' -' * 30)
+        print(" -" * 30)
         print(
             "|{0:^11}|{1:^17}|{2:^14}|{3:^14}|".format(
                 "Layer", "Shape", "Parameters", "Activation"
             )
         )
-        print(' -' * 30)
+        print(" -" * 30)
         for layer in self.layers : layer.details()
-        print(' -' * 30)
+        print(" -" * 30)
         print("| Input dimension  :  {0:<38}|".format(self.layers[0].weights.shape[0]))
         print("| Output dimension :  {0:<38}|".format(self.layers[-1].num_nodes))
-        print(' -' * 30)
+        print(" -" * 30)

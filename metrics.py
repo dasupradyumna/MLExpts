@@ -14,7 +14,7 @@ def EuclideanNorm( x ) :
 # sum of magnitudes of values
 def ManhattanNorm( x ) :
     assert x.ndim <= 2, "Expected argument is at most a 2D numpy array."
-    return np.sum(np.abs(x), axis=-1)
+    return np.sum(np.absolute(x), axis=-1)
 
 
 # calculates gradients numerically using first principle; sanity check for analytical gradient functions

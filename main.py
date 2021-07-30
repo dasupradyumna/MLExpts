@@ -6,6 +6,7 @@ from tensorflow.keras.datasets import cifar10
 # 28x28x1 gray images of handwritten digits (10 classes) : 60000 training points, 10000 testing points
 from tensorflow.keras.datasets import mnist
 
+import features
 import metrics
 from classifier import KNearestNeighbour, Linear
 from neuralnet import Dense, NeuralNetwork
@@ -42,18 +43,22 @@ def testKNN( ) :
     print(f"Accuracy = {correct}/{len(test_labels)} : {100 * correct / len(test_labels)}%")
 
 
-def testLinear( ) :
-    def preprocess( images, labels ) :
-        # images : N x H x W x C, no. of images, height, width, channels of each image
-        # labels : N x 1, true labels for each image
-        N, H, W, C = images.shape[0]
-        images = images / 255  # normalize pixel values to [0,1] interval
-        images -= np.mean(images, axis=(1, 2), keepdims=True)  # N x 1 x 1 x C : mean per channel per image
-        images.resize(N, H * W * C)  # N x K, K features (all pixels)
-        images = np.hstack((images, np.ones((N, 1))))  # appending a column of 1s for including bias in weights
-        labels.resize(N)  # making labels an N-vector
-        return images, labels
+def __preprocess( images, labels, feature_generator=None ) :
+    # images : N x H x W x C, no. of images, height, width, channels of each image
+    # labels : N x 1, true labels for each image
+    if images.ndim == 3 : images = images[..., np.newaxis]
+    N, H, W, C = images.shape
+    labels.resize(N)  # making labels an N-vector
+    images = images / 255  # normalize pixel values to [0,1] interval
+    if feature_generator is None :
+        images = images.reshape(N, H // 2, 2, W // 2, 2, C).max(axis=(2, 4))  # subsample to 1/4th of original image
+        images -= np.mean(images, axis=(1, 2), keepdims=True)  # subtracting mean per channel per image
+        return images.reshape(N, -1), labels  # N x K, K features and labels
+    else :
+        return feature_generator(images, orientations=4, cell_size=4), labels
 
+
+def testLinear( ) :
     start = time()
     NUM_CLASSES = 10
     NUM_ITERATIONS = 1000
@@ -61,8 +66,8 @@ def testLinear( ) :
     ############ UNPACKING AND PREPROCESSING DATASET ############
 
     (train_images, train_labels), (test_images, test_labels) = cifar10.load_data()
-    train_images, train_labels = preprocess(train_images, train_labels)
-    test_images, test_labels = preprocess(test_images, test_labels)
+    train_images, train_labels = __preprocess(train_images, train_labels)
+    test_images, test_labels = __preprocess(test_images, test_labels)
     half_test = test_labels.size // 2  # splitting half of test data for validation
     validation_images, validation_labels = test_images[: half_test], test_labels[: half_test]
     test_images, test_labels = test_images[half_test :], test_labels[half_test :]
@@ -109,48 +114,45 @@ def testLinear( ) :
 
 
 def testNN( ) :
-    def preprocess( images, labels ) :  # sub-samples to 16x16 images before flattening it
-        # images : N x H x W x C, no. of images, height, width, channels of each image
-        # labels : N x 1, true labels for each image
-        if images.ndim == 3 : images = images[..., np.newaxis]
-        N, H, W, C = images.shape
-        images = images.reshape(-1, H // 2, 2, W // 2, 2, C).max(axis=(2, 4)).copy()  # copy to new contiguous array
-        images = images / 255  # normalize pixel values to [0,1] interval
-        images -= np.mean(images, axis=(1, 2), keepdims=True)  # N x 1 x 1 x C : mean per channel per image
-        images.resize(N, H * W * C)  # N x K, K features (all pixels) (only works on contiguous arrays)
-        labels.resize(N)  # making labels an N-vector
-        return images, labels
-
-    NUM_CLASSES = 10
-    EPOCHS = 10
-    BATCH_SIZE = 100
-
     ############ UNPACKING AND PREPROCESSING DATASET ############
 
+    NUM_CLASSES = 10
     (train_images, train_labels), (test_images, test_labels) = cifar10.load_data()
-    train_images, train_labels = preprocess(train_images, train_labels)
-    test_images, test_labels = preprocess(test_images, test_labels)
+    train_features, train_labels = __preprocess(train_images, train_labels, features.HOG)
+    test_features, test_labels = __preprocess(test_images, test_labels, features.HOG)
     half_test = test_labels.size // 2  # splitting half of test data for validation
-    validation_images, validation_labels = test_images[: half_test], test_labels[: half_test]
-    test_images, test_labels = test_images[half_test :], test_labels[half_test :]
+    validation_features, validation_labels = test_features[: half_test], test_labels[: half_test]
+    test_features, test_labels = test_features[half_test :], test_labels[half_test :]
+    del train_images, test_images
     print("Datasets loaded and preprocessed.\n")
 
     ############ TUNING HYPERPARAMETERS AND VALIDATION ############
 
-    hyperparameters = np.zeros((2, 3, 2))
-    hyperparameters[:, :, 0] = np.array([1, 0.5])[:, np.newaxis]  # learning_rate
-    hyperparameters[:, :, 1] = np.array([1e-4, 1e-6, 1e-8])[np.newaxis, :]  # reg_lambda
-    hyperparameters.resize(6, 2)
+    # [ learning_rate, reg_lambda, EPOCHS ]
+    hyperparameters = np.zeros((3, 3, 2, 3))
+    hyperparameters[..., 0] = np.array([0.5, 0.25, 0.1])[:, np.newaxis, np.newaxis]
+    hyperparameters[..., 1] = np.array([1e-4, 1e-6, 1e-8])[np.newaxis, :, np.newaxis]
+    hyperparameters[..., 2] = np.array([8, 10])[np.newaxis, np.newaxis, :]
+    hyperparameters.resize(18, 3)
+    BATCH_SIZE = 100
 
-    print("------- Validation -------")
-    NNModel = None
+    print("------- Training / Validation -------")
+    print(
+        "  N  | {0:^6} {1:^8} {2:^6} | {3:^8} ,  {4} ".format(
+            "LR", "Lambda", "Epochs", "Accuracy", "Time taken"
+        )
+    )
+    print("--------------------------------------------------------")
+
+    Model = None
     accuracy_hp = []
     best_weights_hp = []
+    loss_hp = []
     count = 1
-    for learning_rate, reg_lambda in hyperparameters :
+    for learning_rate, reg_lambda, EPOCHS in hyperparameters :
         start = time()
-        NNModel = NeuralNetwork(
-            train_images,
+        Model = NeuralNetwork(
+            train_features,
             train_labels,
             metrics.SparseCELoss(reg_lambda),
             Layers=[
@@ -159,25 +161,29 @@ def testNN( ) :
                 Dense(NUM_CLASSES, metrics.Softmax)
             ]
         )
-        best_weights_hp.append(NNModel.train(EPOCHS, BATCH_SIZE, learning_rate)[1])
-        predictions = NNModel.predict(validation_images)
+        loss, best_weights = Model.train(EPOCHS, BATCH_SIZE, learning_rate)
+        best_weights_hp.append(best_weights)
+        loss_hp.append(loss)
+        Model.load_weights(best_weights)
+        predictions = Model.predict(validation_features)
         correct = np.sum(predictions == validation_labels)
         accuracy_hp.append(100 * correct / len(validation_labels))  # log accuracy for current configuration
 
-        print(f"{count} : [ {learning_rate} {reg_lambda} ] : {accuracy_hp[-1]}% , {(time() - start):.3f}s")
+        print(
+            f"{count:^5}| {learning_rate:^6} {reg_lambda:^8} {EPOCHS:^6} "
+            f"| {accuracy_hp[-1]:>6} % ,  {(time() - start):.3f}s"
+        )
         count += 1
 
     ############ TRAINING WITH BEST HYPERPARAMETERS AND PREDICTION ############
 
+    Model.details()
     print("\n------- Testing -------")
-    start = time()
-    NNModel.details()
-    NNModel.load_weights(best_weights_hp[np.argmax(accuracy_hp)])
-    predictions = NNModel.predict(test_images)
+    best_accuracy = np.argmax(accuracy_hp)
+    Model.load_weights(best_weights_hp[best_accuracy])
+    predictions = Model.predict(test_features)
     correct = np.sum(predictions == test_labels)
-
-    print(f"Total Time elapsed : {(time() - start):.3f}s")
-    print(f"Accuracy = {correct}/{len(test_labels)} : {100 * correct / len(test_labels)}%")
+    print(f"Accuracy = {correct}/{len(test_labels)} = {100 * correct / len(test_labels)}%")
 
 
 if __name__ == '__main__' :

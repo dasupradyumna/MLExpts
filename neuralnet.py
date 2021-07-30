@@ -59,9 +59,8 @@ class Dense :
     # display the details of the layer
     def details( self ) :
         print(
-            "|{0:^11}|{1:^17}|{2:^14}|{3:^14}|".format(
-                "Dense", str(self.weights.shape), self.weights.size, self.activation.__qualname__
-            )
+            f"|{type(self).__name__:^11}|{str(self.weights.shape):^17}|"
+            f"{self.weights.size:^14}|{self.activation.__name__:^14}|"
         )
 
 
@@ -92,7 +91,7 @@ class NeuralNetwork :
         EPOCHS_FOR_DECAY = 2  # number of epochs to decay learning rate at
         num_data = self.train_data.shape[0]  # number of datapoints in training data
         iterations_per_epoch = num_data // batch_size  # number of iterations per epoch
-        num_iterations = epochs * iterations_per_epoch  # total number of iterations
+        num_iterations = int(epochs) * iterations_per_epoch  # total number of iterations
 
         best_weights = None  # stores the best weights so far every epoch
         best_accuracy = 0  # metric to update best weights
@@ -150,7 +149,7 @@ class NeuralNetwork :
 
     # display the details of the network's structure
     def details( self ) :
-        print("Model structure :")
+        print("\nModel structure :")
         print(" -" * 30)
         print(
             "|{0:^11}|{1:^17}|{2:^14}|{3:^14}|".format(

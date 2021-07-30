@@ -10,10 +10,8 @@ def __polar_gradient( image ) :
     gradY[:, 1 : -1, :] = image[:, 2 :, :] - image[:, : -2, :]
     gradY[:, :, 0] = gradY[:, :, -1] = 0
 
-    Mag = np.sqrt(gradX * gradX + gradY * gradY)
-    Ang = np.arctan2(gradY, gradX) * 180 / np.pi
-    Ang[Ang < 0] += 180
-    Ang[Ang == 180] = 0
+    Mag = np.hypot(gradX, gradY)
+    Ang = np.rad2deg(np.arctan2(gradY, gradX)) % 180
 
     max_grad_mask = Mag.argmax(axis=-1)[..., np.newaxis] == np.arange(image.shape[-1])
     Mag = Mag[max_grad_mask].reshape(*image.shape[:-1])
@@ -46,20 +44,29 @@ def __normalize_histograms( grid, norm_block ) :
     idxN = np.arange(N)[:, np.newaxis, np.newaxis, np.newaxis, np.newaxis]
 
     blocks = grid[idxN, idxH, idxW]
-    blocks.resize(*blocks.shape[:3], norm_block * norm_block, bins)
-    blocks_norm = np.linalg.norm(blocks, axis=(1, 2), keepdims=True)
+    blocks.resize(*blocks.shape[:3], norm_block * norm_block * bins)
+    blocks_norm = np.linalg.norm(blocks, axis=-1, keepdims=True)
     np.divide(blocks, blocks_norm, out=blocks, where=(blocks_norm != 0))
-    return blocks.reshape(N, -1)
+    return blocks.reshape(N, -1).squeeze()
 
 
-def HOG( image, orientations=9, cell_size=8, *, norm_block=2, color=True ) :
-    if not color : image = image[..., np.newaxis]
-    if image.ndim == 3 : image = image[np.newaxis, ...]
+def HOG( images, **kwargs ) :
+    orientations = kwargs.pop("orientations", 9)
+    cell_size = kwargs.pop("cell_size", 8)
+    norm_block = kwargs.pop("norm_block", 2)
+    color = kwargs.pop("color", True)
+    gamma_correction = kwargs.pop("gamma_correction", False)
+    if len(kwargs) != 0 :
+        raise ValueError("Too many arguments to unpack from function call.\n")
 
-    if (image.shape[1] % cell_size) + (image.shape[2] % cell_size) != 0 :
+    if not color : images = images[..., np.newaxis]
+    if images.ndim == 3 : images = images[np.newaxis, ...]
+
+    if (images.shape[1] % cell_size) + (images.shape[2] % cell_size) != 0 :
         raise ValueError("Image cannot be divided into exact cells. Check dimensions.\n")
 
-    mags, dirs = __polar_gradient(image)
+    if gamma_correction : images = np.sqrt(images)
+    mags, dirs = __polar_gradient(images)
     grid = __get_histograms(mags, dirs, orientations, cell_size)
     return __normalize_histograms(grid, norm_block)
 

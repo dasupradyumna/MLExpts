@@ -25,6 +25,7 @@ class KNearestNeighbour :
 
 # Represent a simple Linear (affine) classifier model
 class Linear :
+    # TODO : add kernels for non-linear classification (SVM)
 
     def __init__( self, NumClasses ) :
         self.weights = None

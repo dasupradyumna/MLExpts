@@ -84,6 +84,7 @@ def HOG( images, **kwargs ) :
     grid = __get_histograms(mags, dirs, orientations, cell_size)  # get initial histogram
     return __normalize_histograms(grid, norm_block)  # normalize above output histogram
 
+# TODO : add SURF and SIFT implementations
 
 if __name__ == "__main__" :
     from PIL import Image

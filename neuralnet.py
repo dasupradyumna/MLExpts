@@ -2,6 +2,11 @@ import numpy as np
 
 import metrics
 
+# TODO : add conv2d layer
+# TODO : max-pool layer
+# TODO : add dropout layer, remove lambda if dropout is used
+# TODO : add batch and layer normalization (for dense)
+# TODO : add spatial batch and group normalization (for conv2d)
 
 # Represents the most basic, "fully-connected" (or dense) layer for neural networks
 class Dense :
@@ -66,12 +71,14 @@ class Dense :
 
 # Represents a Neural Network, which can hold multiple layers and a loss metric
 class NeuralNetwork :
+    # TODO : update rule classes (SGDMomentum, RMSProp, Adam) new file called optimizers.py
 
     def __init__( self, train_data, train_labels, LossModel, Layers ) :
-        self.check_data = train_data[: 1000]  # data for accuracy checking set
-        self.check_labels = train_labels[: 1000]  # labels for accuracy checking set
-        self.train_data = train_data[1000 :]  # data for training weights
-        self.train_labels = train_labels[1000 :]  # labels for training weights
+        train_check_split = 1000
+        self.check_data = train_data[: train_check_split]  # data for accuracy checking set
+        self.check_labels = train_labels[: train_check_split]  # labels for accuracy checking set
+        self.train_data = train_data[train_check_split :]  # data for training weights
+        self.train_labels = train_labels[train_check_split :]  # labels for training weights
         self.loss_model = LossModel
 
         prev_output_size = train_data.shape[1]

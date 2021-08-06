@@ -2,6 +2,7 @@ import numpy as np
 
 import metrics
 
+
 # TODO : add conv2d layer
 # TODO : max-pool layer
 # TODO : add dropout layer, remove lambda if dropout is used
@@ -11,9 +12,9 @@ import metrics
 # Represents the most basic, "fully-connected" (or dense) layer for neural networks
 class Dense :
 
-    def __init__( self, NumNodes, Activation ) :
-        self.num_nodes = NumNodes  # number of nodes in current layer
-        self.activation = Activation  # activation function to be applied to output of the affine product
+    def __init__( self, num_nodes, activation ) :
+        self.num_nodes = num_nodes  # number of nodes in current layer
+        self.activation = activation  # activation function to be applied to output of the affine product
         self.weights = None  # weights matrix connecting to previous layer
         self.bias = None  # bias vector for current layer
         self.nodes = None  # array to store the values of current layer
@@ -46,10 +47,10 @@ class Dense :
         return self.nodes, loss
 
     # backpropagation step
-    def backward( self, gradients, reg_lambda, learning_rate ) :
+    def backward( self, gradients, reg_lambda, update_rule ) :
         gradients = self.activation.backward(gradients, self.nodes)  # gradient wrt activation function
 
-        self.bias -= learning_rate * (np.mean(gradients, axis=0) + reg_lambda * self.bias)
+        self.bias += update_rule(np.mean(gradients, axis=0) + reg_lambda * self.bias)
 
         weight_grads = np.mean(  # gradients for updating weights
             self.input[:, :, np.newaxis] @ gradients[:, np.newaxis, :],
@@ -57,7 +58,7 @@ class Dense :
         )
         weight_grads += reg_lambda * self.weights  # gradient of regularization term
         gradients = gradients @ self.weights.T  # gradient for passing to previous layer
-        self.weights -= learning_rate * weight_grads  # updating weights
+        self.weights += update_rule(weight_grads)  # updating weights
 
         return gradients
 
@@ -71,15 +72,15 @@ class Dense :
 
 # Represents a Neural Network, which can hold multiple layers and a loss metric
 class NeuralNetwork :
-    # TODO : update rule classes (SGDMomentum, RMSProp, Adam) new file called optimizers.py
 
-    def __init__( self, train_data, train_labels, LossModel, Layers ) :
+    def __init__( self, train_data, train_labels, loss_model, update_rule, Layers ) :
         train_check_split = 1000
         self.check_data = train_data[: train_check_split]  # data for accuracy checking set
         self.check_labels = train_labels[: train_check_split]  # labels for accuracy checking set
         self.train_data = train_data[train_check_split :]  # data for training weights
         self.train_labels = train_labels[train_check_split :]  # labels for training weights
-        self.loss_model = LossModel
+        self.loss_model = loss_model
+        self.update_rule = update_rule
 
         prev_output_size = train_data.shape[1]
         self.layers = []  # list of all layers
@@ -94,7 +95,7 @@ class NeuralNetwork :
             self.layers[layer_num].weights, self.layers[layer_num].bias = weights_list[layer_num]
 
     # train the weights of the model using a dataset and other parameters
-    def train( self, epochs, batch_size, learning_rate, lr_decay=0.5 ) :
+    def train( self, epochs, batch_size ) :
         EPOCHS_FOR_DECAY = 2  # number of epochs to decay learning rate at
         num_data = self.train_data.shape[0]  # number of datapoints in training data
         iterations_per_epoch = num_data // batch_size  # number of iterations per epoch
@@ -116,7 +117,7 @@ class NeuralNetwork :
                  metrics.gradient_check(self, data_batch, layer.bias, labels_batch))
                 for layer in self.layers
             ]  # """
-            self.backward(scores, labels_batch, learning_rate)  # update weights of all layers
+            self.backward(scores, labels_batch)  # update weights of all layers
 
             # every epoch, check goodness of current weights and update best weights if current weights are better
             if (itr + 1) % iterations_per_epoch == 0 :
@@ -127,7 +128,7 @@ class NeuralNetwork :
 
                 # decay learning rate every fixed number of epochs
                 if (itr + 1) % (EPOCHS_FOR_DECAY * iterations_per_epoch) == 0 :
-                    learning_rate *= lr_decay
+                    self.update_rule.decay()
 
         self.load_weights(best_weights)  # load the best weights of the entire training session
         return loss_iterations, best_weights
@@ -149,10 +150,10 @@ class NeuralNetwork :
         return nodes, loss
 
     # backpropagation step
-    def backward( self, scores, labels, learning_rate ) :
+    def backward( self, scores, labels ) :
         gradients, reg_lambda = self.loss_model.backward(scores, labels)  # gradient wrt output of last layer
         for layer in reversed(self.layers) :  # propagating gradients backwards through each layer
-            gradients = layer.backward(gradients, reg_lambda, learning_rate)
+            gradients = layer.backward(gradients, reg_lambda, self.update_rule)
 
     # display the details of the network's structure
     def details( self ) :

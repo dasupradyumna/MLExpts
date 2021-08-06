@@ -8,6 +8,7 @@ from tensorflow.keras.datasets import mnist
 
 import features
 import metrics
+import optimizers
 from classifier import KNearestNeighbour, Linear
 from neuralnet import Dense, NeuralNetwork
 
@@ -152,16 +153,17 @@ def testNN( ) :
     for learning_rate, reg_lambda, EPOCHS in hyperparameters :
         start = time()
         Model = NeuralNetwork(
-            train_features,
-            train_labels,
+            train_features, train_labels,
             metrics.SparseCELoss(reg_lambda),
-            Layers=[
+            optimizers.SGD(learning_rate, 0.5),
+            Layers=(
                 Dense(64, metrics.ReLU),
                 Dense(32, metrics.ReLU),
                 Dense(NUM_CLASSES, metrics.Softmax)
-            ]
+            )
         )
-        loss, best_weights = Model.train(EPOCHS, BATCH_SIZE, learning_rate)
+
+        loss, best_weights = Model.train(EPOCHS, BATCH_SIZE)
         best_weights_hp.append(best_weights)
         loss_hp.append(loss)
         Model.load_weights(best_weights)

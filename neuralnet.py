@@ -73,14 +73,14 @@ class Dense :
 # Represents a Neural Network, which can hold multiple layers and a loss metric
 class NeuralNetwork :
 
-    def __init__( self, train_data, train_labels, loss_model, update_rule, Layers ) :
+    def __init__( self, train_data, train_labels, Layers ) :
         train_check_split = 1000
         self.check_data = train_data[: train_check_split]  # data for accuracy checking set
         self.check_labels = train_labels[: train_check_split]  # labels for accuracy checking set
         self.train_data = train_data[train_check_split :]  # data for training weights
         self.train_labels = train_labels[train_check_split :]  # labels for training weights
-        self.loss_model = loss_model
-        self.update_rule = update_rule
+        self.loss_model = None
+        self.update_rule = None
 
         prev_output_size = train_data.shape[1]
         self.layers = []  # list of all layers
@@ -128,7 +128,7 @@ class NeuralNetwork :
 
                 # decay learning rate every fixed number of epochs
                 if (itr + 1) % (EPOCHS_FOR_DECAY * iterations_per_epoch) == 0 :
-                    self.update_rule.decay()
+                    self.update_rule.decay_learning_rate()
 
         self.load_weights(best_weights)  # load the best weights of the entire training session
         return loss_iterations, best_weights

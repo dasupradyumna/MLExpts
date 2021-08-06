@@ -145,23 +145,22 @@ def testNN( ) :
     )
     print("--------------------------------------------------------")
 
-    Model = None
+    Model = NeuralNetwork(
+        train_features, train_labels,
+        Layers=(
+            Dense(64, metrics.ReLU),
+            Dense(32, metrics.ReLU),
+            Dense(NUM_CLASSES, metrics.Softmax)
+        )
+    )
     accuracy_hp = []
     best_weights_hp = []
     loss_hp = []
     count = 1
     for learning_rate, reg_lambda, EPOCHS in hyperparameters :
         start = time()
-        Model = NeuralNetwork(
-            train_features, train_labels,
-            metrics.SparseCELoss(reg_lambda),
-            optimizers.SGD(learning_rate, 0.5),
-            Layers=(
-                Dense(64, metrics.ReLU),
-                Dense(32, metrics.ReLU),
-                Dense(NUM_CLASSES, metrics.Softmax)
-            )
-        )
+        Model.loss_model = metrics.SparseCELoss(reg_lambda)
+        Model.update_rule = optimizers.SGD(learning_rate, lr_decay=0.5)
 
         loss, best_weights = Model.train(EPOCHS, BATCH_SIZE)
         best_weights_hp.append(best_weights)
@@ -172,12 +171,12 @@ def testNN( ) :
         accuracy_hp.append(100 * correct / len(validation_labels))  # log accuracy for current configuration
 
         print(
-            f"{count:^5}| {learning_rate:^6} {reg_lambda:^8} {EPOCHS:^6} "
+            f"{count:^5}| {learning_rate:^6} {reg_lambda:^8} {int(EPOCHS):^6} "
             f"| {accuracy_hp[-1]:>6} % ,  {(time() - start):.3f}s"
         )
         count += 1
 
-    ############ TRAINING WITH BEST HYPERPARAMETERS AND PREDICTION ############
+    ############ PREDICTION WITH WEIGHTS CORRESPONDING TO BEST HYPERPARAMETERS  ############
 
     Model.details()
     print("\n------- Testing -------")

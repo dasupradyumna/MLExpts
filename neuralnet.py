@@ -96,7 +96,6 @@ class NeuralNetwork :
 
     # train the weights of the model using a dataset and other parameters
     def train( self, epochs, batch_size ) :
-        EPOCHS_FOR_DECAY = 2  # number of epochs to decay learning rate at
         num_data = self.train_data.shape[0]  # number of datapoints in training data
         iterations_per_epoch = num_data // batch_size  # number of iterations per epoch
         num_iterations = int(epochs) * iterations_per_epoch  # total number of iterations
@@ -125,10 +124,6 @@ class NeuralNetwork :
                 if check_accuracy > best_accuracy :
                     best_accuracy = check_accuracy
                     best_weights = [(layer.weights, layer.bias) for layer in self.layers]
-
-                # decay learning rate every fixed number of epochs
-                if (itr + 1) % (EPOCHS_FOR_DECAY * iterations_per_epoch) == 0 :
-                    self.update_rule.decay_learning_rate()
 
         self.load_weights(best_weights)  # load the best weights of the entire training session
         return loss_iterations, best_weights

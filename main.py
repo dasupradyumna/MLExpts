@@ -160,7 +160,7 @@ def testNN( ) :
     for learning_rate, reg_lambda, EPOCHS in hyperparameters :
         start = time()
         Model.loss_model = metrics.SparseCELoss(reg_lambda)
-        Model.update_rule = optimizers.SGD(learning_rate, lr_decay=0.5)
+        Model.update_rule = optimizers.SGD(learning_rate, train_features.shape[0] // BATCH_SIZE, lr_decay=0.5)
 
         loss, best_weights = Model.train(EPOCHS, BATCH_SIZE)
         best_weights_hp.append(best_weights)

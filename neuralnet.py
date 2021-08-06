@@ -1,6 +1,7 @@
 import numpy as np
 
 import metrics
+import optimizers
 
 
 # TODO : add conv2d layer
@@ -107,6 +108,7 @@ class NeuralNetwork :
             # extracting a random batch from the full dataset, with replacement
             batch = np.random.choice(num_data, batch_size)
             labels_batch = self.train_labels[batch]
+            if hasattr(self.update_rule, "iterations") : self.update_rule.iterations += 1
 
             # calculate final scores and loss
             scores, loss_iterations[itr] = self.forward(self.train_data[batch], labels_batch)
@@ -124,6 +126,10 @@ class NeuralNetwork :
                 if check_accuracy > best_accuracy :
                     best_accuracy = check_accuracy
                     best_weights = [(layer.weights, layer.bias) for layer in self.layers]
+
+                # decay learning rate if update rule is SGD variant (non-adaptive optimizer)
+                if issubclass(type(self.update_rule), optimizers.SGD) :
+                    self.update_rule.decay_learning_rate()
 
         self.load_weights(best_weights)  # load the best weights of the entire training session
         return loss_iterations, best_weights

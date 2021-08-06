@@ -41,18 +41,17 @@ class InverseDecay(AnnealingSchedule) :
 class SGD :
 
     def __init__( self, learning_rate, iterations_per_epoch, *, decay_type=StepDecay, lr_decay=1 ) :
+        if not 0 < lr_decay < 1 :
+            raise ValueError("Decay rates must be in open (0,1).\n")
         self.learning_rate = learning_rate
         self.lr_decay = lr_decay
         self.decay = decay_type
-        self.iterations = 0
         self.iter_epoch = iterations_per_epoch
 
     def __call__( self, gradients ) :
-        self.iterations += 1
-        if self.iterations % self.iter_epoch == 0 : self._decay_learning_rate()
         return -self.learning_rate * gradients
 
-    def _decay_learning_rate( self ) :
+    def decay_learning_rate( self ) :
         self.learning_rate = self.decay(self.learning_rate)
 
 
@@ -64,8 +63,6 @@ class SGDMomentum(SGD) :
         self.friction = friction
 
     def __call__( self, gradients ) :
-        self.iterations += 1
-        if self.iterations % self.iter_epoch == 0 : self._decay_learning_rate()
         self.velocity = self.friction * self.velocity - self.learning_rate * gradients
         return self.velocity
 
@@ -73,8 +70,6 @@ class SGDMomentum(SGD) :
 class NAG(SGDMomentum) :
 
     def __call__( self, gradients ) :
-        self.iterations += 1
-        if self.iterations % self.iter_epoch == 0 : self._decay_learning_rate()
         velocity_old = self.velocity
         self.velocity = self.friction * self.velocity - self.learning_rate * gradients
         return (1 + self.friction) * self.velocity - self.friction * velocity_old
@@ -118,7 +113,6 @@ class Adam :
         self.iterations = 0
 
     def __call__( self, gradients ) :
-        self.iterations += 1
         self.moment1 = self.decay1 * self.moment1 + (1 - self.decay1) * gradients
         m1_corrected = self.moment1 / (1 - np.power(self.decay1, self.iterations))
         self.moment2 = self.decay2 * self.moment2 + (1 - self.decay2) * gradients * gradients
